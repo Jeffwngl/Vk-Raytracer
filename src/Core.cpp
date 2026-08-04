@@ -54,6 +54,10 @@ public:
         return true;
     }
 
+    ~VulkanCore() {
+        cleanUp();
+    }
+
 private:
     void createWindow() {
         utils::check(SDL_Init(SDL_INIT_VIDEO));
@@ -450,6 +454,34 @@ private:
             
             return swapExtent;
         }
+    }
+
+    void cleanUp() {
+        vkDeviceWaitIdle(device);
+
+        for (FrameData& frame : frames) {
+            vkDestroySemaphore(device, frame.imageAvailable, nullptr);
+            vkDestroySemaphore(device, frame.computeFinished, nullptr);
+            vkDestroySemaphore(device, frame.renderFinished, nullptr);
+
+            vkDestroyFence(device, frame.computeFence, nullptr);
+            vkDestroyFence(device, frame.graphicsFence, nullptr);
+        }
+
+        vkDestroyCommandPool(device, commandPool, nullptr);
+
+        for (VkImageView view : swapChainImageViews) {
+            vkDestroyImageView(device, view, nullptr);
+        }
+
+        vkDestroySwapchainKHR(device, swapchain, nullptr);
+        vkDestroyDevice(device, nullptr);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
+        vkDestroyInstance(instance, nullptr);
+
+        SDL_DestroyWindow(window);
+        SDL_Vulkan_UnloadLibrary();
+        SDL_Quit();
     }
 
 private:

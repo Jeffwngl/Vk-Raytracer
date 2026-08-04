@@ -201,10 +201,15 @@ private:
             };
         }
 
+        uint32_t imageCnt = surfaceCaps.minImageCount + 1;
+        if (surfaceCaps.maxImageCount > 0 && imageCnt > surfaceCaps.maxImageCount) {
+            imageCnt = surfaceCaps.maxImageCount;
+        }
+
         VkSwapchainCreateInfoKHR swapchainCI{
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
                 .surface = surface,
-                .minImageCount = surfaceCaps.minImageCount,
+                .minImageCount = imageCnt,
                 .imageFormat = supportDetails.formats[swapFormat].format,
                 .imageColorSpace = supportDetails.formats[swapFormat].colorSpace,
                 .imageExtent{ .width = swapchainExtent.width, .height = swapchainExtent.height },

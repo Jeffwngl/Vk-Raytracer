@@ -13,6 +13,11 @@
 #include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan_core.h>
 
+struct SwapchainSupportDetails {
+    VkSurfaceCapabilitiesKHR surfaceCapabilities{};
+    std::vector<VkSurfaceFormatKHR>formats;
+    std::vector<VkPresentModeKHR>presentModes;
+};
 
 export class VulkanCore {
 public:
@@ -25,6 +30,7 @@ public:
         initializeDevice(deviceNum);
         createLogicalDevice();
         createSurface();
+        createSwapChain();
 
         
         return true;
@@ -128,6 +134,33 @@ private:
         assert(window);
         utils::check(SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface));
         utils::check(SDL_GetWindowSize(window, &windowSize.x, &windowSize.y));
+   }
+
+    void initializeVMA() {
+        
+    }
+
+    void createSwapChain() {
+        SwapchainSupportDetails supportDetails = querySwapChainSupport(physicalDevice, surface);
+
+        uint32_t swapFormat{ 0 };
+        for (size_t i = 0; i < supportDetails.formats.size(); ++i) { // TODO: offload this to separate function
+            if (supportDetails.formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && supportDetails.formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+                swapFormat = i;
+                break;
+            }
+        }
+
+        VkPresentModeKHR swapPresentMode{};
+        for (size_t i = 0; i < supportDetails.presentModes.size(); ++i) {
+            if (supportDetails.presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+                swapPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+            }
+        }
+        if (swapPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) {
+            swapPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+        }
+
         VkSurfaceCapabilitiesKHR surfaceCaps{};
         utils::check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
         // check for wayland
@@ -138,15 +171,63 @@ private:
                 .height = static_cast<uint32_t>(windowSize.y)
             };
         }
+
+        VkSwapchainCreateInfoKHR swapchainCI{
+            .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                .surface = surface,
+                .minImageCount = surfaceCaps.minImageCount,
+                .imageFormat = supportDetails.formats[swapFormat].format,
+                .imageColorSpace = supportDetails.formats[swapFormat].colorSpace,
+                .imageExtent{ .width = swapchainExtent.width, .height = swapchainExtent.height },
+                .imageArrayLayers = 1,
+                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        };
+        utils::check(vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapchain));
+
+        uint32_t imageCnt{ 0 };
+        utils::check(vkGetSwapchainImagesKHR(device, swapchain, &imageCnt, nullptr));
+        swapChainImages.resize(imageCnt);
+        utils::check(vkGetSwapchainImagesKHR(device, swapchain, &imageCnt, swapChainImages.data()));
+
+        swapChainImageViews.resize(imageCnt);
+        for (size_t i = 0; i < swapChainImages.size(); ++i) {
+            VkImageViewCreateInfo imageViewCI{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image = swapChainImages[i],
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .format = supportDetails.formats[swapFormat].format,
+                .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .subresourceRange.levelCount = 1,
+                .subresourceRange.layerCount = 1
+            };
+            utils::check(vkCreateImageView(device, &imageViewCI, nullptr, &swapChainImageViews[i]));
+        }
     }
 
-    void initializeVMA() {
+    SwapchainSupportDetails querySwapChainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
+        SwapchainSupportDetails details{};
 
-    }
+        utils::check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &details.surfaceCapabilities));
 
-    void createSwapChain() {
+        uint32_t formatCnt{ 0 };
 
+        utils::check(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCnt, nullptr));
 
+        if (formatCnt > 0) {
+            details.formats.resize(formatCnt);
+            utils::check(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCnt, details.formats.data()));
+        }
+
+        uint32_t presentModeCnt{ 0 };
+
+        utils::check(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCnt, nullptr));
+
+        if (presentModeCnt > 0) {
+            details.presentModes.resize(presentModeCnt);
+            utils::check(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &presentModeCnt, details.presentModes.data()));
+        }
+
+        return details;
     }
 
 private:
@@ -155,6 +236,10 @@ private:
     VkDevice device{ VK_NULL_HANDLE };
     SDL_Window* window{};
     VkSurfaceKHR surface{ VK_NULL_HANDLE };
+    VkSwapchainKHR swapchain{ VK_NULL_HANDLE };
+
+    std::vector<VkImage>swapChainImages{};
+    std::vector<VkImageView>swapChainImageViews{};
 
     glm::ivec2 windowSize{};
 

@@ -5,6 +5,8 @@
 #include <cassert>
 #include <stdexcept>
 #include <vector>
+#include <algorithm>
+#include <limits>
 
 #include "Utils.h"
 #include "glm/glm.hpp"
@@ -46,7 +48,7 @@ public:
         createLogicalDevice();
         createSwapChain();
         createCommandPool();
-        CreateCommandBuffers();
+        createCommandBuffers();
         createSyncObjects();
         
         return true;
@@ -115,7 +117,14 @@ private:
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCnt, queueFamilies.data());
         
         for (size_t i = 0; i < queueFamilyCnt; ++i) {
-            if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) { // vkCmdDraw
+            const bool supportsPresentation =
+            SDL_Vulkan_GetPresentationSupport(
+                instance,
+                physicalDevice,
+                i
+            );
+
+            if ((queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && supportsPresentation) { // vkCmdDraw
                 queueFamily = i;
                 break;
             }
@@ -130,9 +139,24 @@ private:
             .pQueuePriorities = &queuePriority
         };
 
-        VkPhysicalDeviceFeatures deviceFeatures {
-            // TODO: add features as needed
+        VkPhysicalDeviceVulkan13Features supportedVk13{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
         };
+
+        VkPhysicalDeviceFeatures2 deviceFeatures {
+            // TODO: add features as needed
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+            .pNext = &supportedVk13
+        };
+
+        vkGetPhysicalDeviceFeatures2(
+            physicalDevice,
+            &deviceFeatures
+        );
+
+        if (!supportedVk13.dynamicRendering || !supportedVk13.synchronization2) {
+            throw std::runtime_error("Required Vulkan 1.3 features are unsupported");
+        }
 
         VkPhysicalDeviceVulkan12Features enabledVk12Features{
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
@@ -192,14 +216,8 @@ private:
 
         VkSurfaceCapabilitiesKHR surfaceCaps{};
         utils::check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
-        // check for wayland
-        VkExtent2D swapchainExtent{ surfaceCaps.currentExtent };
-        if (surfaceCaps.currentExtent.width == 0xFFFFFFFF) {
-            swapchainExtent = {
-                .width = static_cast<uint32_t>(windowSize.x),
-                .height = static_cast<uint32_t>(windowSize.y)
-            };
-        }
+
+        VkExtent2D swapchainExtent = chooseSwapExtent(surfaceCaps);
 
         uint32_t imageCnt = surfaceCaps.minImageCount + 1;
         if (surfaceCaps.maxImageCount > 0 && imageCnt > surfaceCaps.maxImageCount) {
@@ -214,7 +232,7 @@ private:
                 .imageColorSpace = supportDetails.formats[swapFormat].colorSpace,
                 .imageExtent{ .width = swapchainExtent.width, .height = swapchainExtent.height },
                 .imageArrayLayers = 1,
-                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                 .preTransform = surfaceCaps.currentTransform,
                 .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
                 .presentMode = swapPresentMode,
@@ -223,7 +241,6 @@ private:
         };
         utils::check(vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapchain));
 
-        uint32_t imageCnt{ 0 };
         utils::check(vkGetSwapchainImagesKHR(device, swapchain, &imageCnt, nullptr));
         swapChainImages.resize(imageCnt);
         utils::check(vkGetSwapchainImagesKHR(device, swapchain, &imageCnt, swapChainImages.data()));
@@ -326,7 +343,9 @@ private:
         utils::check(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool));
     }
 
-	void CreateCommandBuffers() {
+	void createCommandBuffers() {
+        /* Depracated
+         *
 		commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
 		VkCommandBufferAllocateInfo allocCI{
@@ -337,6 +356,22 @@ private:
         };
 
         utils::check(vkAllocateCommandBuffers(device, &allocCI, commandBuffers.data()));
+        */
+
+        std::vector<VkCommandBuffer> buffers(MAX_FRAMES_IN_FLIGHT * 2);
+        frames.resize(MAX_FRAMES_IN_FLIGHT);
+        VkCommandBufferAllocateInfo allocCI{
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = commandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = static_cast<uint32_t>(buffers.size()),
+        };
+        utils::check(vkAllocateCommandBuffers(device, &allocCI, buffers.data()));
+
+        for (size_t i = 0; i < frames.size(); ++i) {
+            frames[i].computeCommandBuffer = buffers[i * 2];
+            frames[i].graphicsCommandBuffer = buffers[i * 2 + 1];
+        }
 	}
 
     void createSyncObjects() {
@@ -364,7 +399,6 @@ private:
         }
         */
         
-        frames.resize(MAX_FRAMES_IN_FLIGHT);
         for (FrameData& frame : frames) {
             utils::check(vkCreateSemaphore(device, &semaphoreCI, nullptr, &frame.imageAvailable));
             utils::check(vkCreateSemaphore(device, &semaphoreCI, nullptr, &frame.computeFinished));
@@ -373,8 +407,6 @@ private:
             utils::check(vkCreateFence(device, &fenceCI, nullptr, &frame.graphicsFence));
         }
     }
-
-
 
     SwapchainSupportDetails querySwapChainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) {
         SwapchainSupportDetails details{};
@@ -398,6 +430,28 @@ private:
         return details;
     }
 
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCaps) {
+		if (surfaceCaps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+			return surfaceCaps.currentExtent;
+		}
+        else {
+            VkExtent2D swapExtent = {};
+            swapExtent.width = std::clamp(
+                static_cast<uint32_t>(windowSize.x),
+                surfaceCaps.minImageExtent.width,
+                surfaceCaps.maxImageExtent.width
+            );
+
+            swapExtent.height = std::clamp(
+                static_cast<uint32_t>(windowSize.y),
+                surfaceCaps.minImageExtent.height,
+                surfaceCaps.maxImageExtent.height
+            );
+            
+            return swapExtent;
+        }
+    }
+
 private:
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
 
@@ -414,7 +468,7 @@ private:
 
     std::vector<VkImage>swapChainImages{};
     std::vector<VkImageView>swapChainImageViews{};
-    std::vector<VkCommandBuffer>commandBuffers{};
+    // std::vector<VkCommandBuffer>commandBuffers{};
     std::vector<FrameData>frames{};
     // std::vector<VkFence>inFlightFences{};
     // std::vector<VkSemaphore>imageAcquiredSempahores{};

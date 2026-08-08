@@ -1,11 +1,14 @@
 #pragma once
 
+#include "SDL3/SDL_events.h"
+#include "SDL3/SDL_keycode.h"
 #include <cstdint>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
 
 struct SwapchainSupportDetails {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
@@ -30,7 +33,18 @@ public:
     VulkanCore() = default;
     ~VulkanCore();
 
+    bool running = false;
+
     bool initialize(uint32_t deviceNum);
+
+    VkDevice getDevice() const;
+    VkQueue getQueue() const;
+    VkSwapchainKHR getSwapchain() const;
+
+    const std::vector<VkImage>& getSwapchainImages() const;
+    const std::vector<VkImageView>& getSwapchainImageViews() const;
+
+    void close();
 
 private:
     void createWindow();

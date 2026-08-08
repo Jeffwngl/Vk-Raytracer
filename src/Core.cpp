@@ -7,7 +7,9 @@
 #include <stdexcept>
 
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan_core.h>
 
+#include "SDL3/SDL_events.h"
 #include "Utils.h"
 
 
@@ -27,7 +29,13 @@ bool VulkanCore::initialize(uint32_t deviceNum) {
     createCommandBuffers();
     createSyncObjects();
 
+    running = true;
+
     return true;
+}
+
+void VulkanCore::close() {
+    running = false;
 }
 
 
@@ -35,6 +43,25 @@ VulkanCore::~VulkanCore() {
     cleanUp();
 }
 
+VkDevice VulkanCore::getDevice() const {
+    return this->device;
+}
+
+VkQueue VulkanCore::getQueue() const {
+    return this->graphicsQueue;
+}
+
+VkSwapchainKHR VulkanCore::getSwapchain() const {
+    return this->swapchain;
+}
+
+const std::vector<VkImage>& VulkanCore::getSwapchainImages() const {
+    return this->swapChainImages;
+}
+
+const std::vector<VkImageView>& VulkanCore::getSwapchainImageViews() const {
+    return this->swapChainImageViews;
+}
 
 void VulkanCore::createWindow() {
     utils::check(SDL_Init(SDL_INIT_VIDEO));
@@ -49,7 +76,6 @@ void VulkanCore::createWindow() {
 
     assert(window);
 }
-
 
 void VulkanCore::initializeInstance() {
     VkApplicationInfo appInfo{
@@ -184,7 +210,7 @@ void VulkanCore::createLogicalDevice() {
         .pNext = &enabledVk12Features,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queueCI,
-        .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
+        .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size(),
         .ppEnabledExtensionNames = requiredDeviceExtensions.data()
     };
 

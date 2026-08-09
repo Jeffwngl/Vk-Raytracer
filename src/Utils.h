@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vulkan/vulkan_core.h>
+#include <string.h>
 
 namespace utils {
     void check(VkResult result) {
@@ -16,5 +17,21 @@ namespace utils {
         }
     }
 
+    std::vector<char> readFile(std::string& path) {
+        std::ifstream file(path, std::ios::ate | std::ios::binary);
 
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file.");
+        }
+
+        size_t fileSize = (size_t)file.tellg();
+        std::vector<char> buffer(fileSize);
+
+        file.seekg(0);
+        file.read(buffer.data(), fileSize);
+
+        file.close();
+
+        return buffer;
+    }
 }

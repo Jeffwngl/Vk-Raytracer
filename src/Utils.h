@@ -3,21 +3,21 @@
 #include <string.h>
 
 namespace utils {
-    void check(VkResult result) {
+    inline void check(VkResult result) {
         if (result != VK_SUCCESS) {
             std::cerr << "Vulkan call returned error " << result << '\n';
             exit(result);
         }
     }
 
-    void check(bool result) {
+    inline void check(bool result) {
         if (!result) {
             std::cerr << "Call returned an error" << '\n';
             exit(result);
         }
     }
 
-    std::vector<char> readFile(std::string& path) {
+    inline std::vector<char> readFile(std::string& path) {
         std::ifstream file(path, std::ios::ate | std::ios::binary);
 
         if (!file.is_open()) {

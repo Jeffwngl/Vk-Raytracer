@@ -1,15 +1,15 @@
 #include "Core.h"
 
 #include <cassert>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
 
 #include <SDL3/SDL_vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <vk_mem_alloc.h>
 
-#include "SDL3/SDL_events.h"
 #include "Utils.h"
 
 
@@ -24,6 +24,7 @@ bool VulkanCore::initialize(uint32_t deviceNum) {
     createSurface();
     initializeDevice(deviceNum);
     createLogicalDevice();
+    initializeVMA();
     createSwapChain();
     createCommandPool();
     createCommandBuffers();
@@ -36,11 +37,6 @@ bool VulkanCore::initialize(uint32_t deviceNum) {
 
 void VulkanCore::close() {
     running = false;
-}
-
-
-VulkanCore::~VulkanCore() {
-    cleanUp();
 }
 
 VkDevice VulkanCore::getDevice() const {
@@ -61,6 +57,14 @@ const std::vector<VkImage>& VulkanCore::getSwapchainImages() const {
 
 const std::vector<VkImageView>& VulkanCore::getSwapchainImageViews() const {
     return this->swapChainImageViews;
+}
+
+FrameData& VulkanCore::getFrameData(uint32_t index) {
+    return this->frames[index];
+}
+
+glm::vec2 VulkanCore::getWindowSize() const {
+    return this->windowSize;
 }
 
 void VulkanCore::createWindow() {
@@ -226,7 +230,12 @@ void VulkanCore::createLogicalDevice() {
 
 
 void VulkanCore::initializeVMA() {
-
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = physicalDevice;
+    allocatorInfo.device = device;
+    allocatorInfo.instance = instance;
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    vmaCreateAllocator(&allocatorInfo, &allocator);
 }
 
 
@@ -602,4 +611,8 @@ void VulkanCore::cleanUp() {
     SDL_DestroyWindow(window);
     SDL_Vulkan_UnloadLibrary();
     SDL_Quit();
+}
+
+VulkanCore::~VulkanCore() {
+    cleanUp();
 }

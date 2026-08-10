@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include <SDL3/SDL_vulkan.h>
+#define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
 #include "Utils.h"
@@ -143,7 +144,7 @@ void VulkanCore::createSurface() {
 }
 
 
-void VulkanCore::initializeDevice(uint32_t deviceNum) {
+void VulkanCore::initializeDevice() {
     uint32_t deviceCnt{ 0 };
     utils::check(vkEnumeratePhysicalDevices(instance, &deviceCnt, nullptr));
 
@@ -154,18 +155,35 @@ void VulkanCore::initializeDevice(uint32_t deviceNum) {
     std::vector<VkPhysicalDevice> devices(deviceCnt);
     utils::check(vkEnumeratePhysicalDevices(instance, &deviceCnt, devices.data()));
 
-    assert(deviceNum < deviceCnt);
-
     VkPhysicalDeviceProperties2 deviceProperties{
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2
     };
 
-    vkGetPhysicalDeviceProperties2(devices[deviceNum], &deviceProperties);
-    physicalDevice = devices[deviceNum];
+    for (VkPhysicalDevice device : devices) {
+        if (!checkSuitableDevice(device)) {
+            continue;
+        }
 
-    std::cout << "Selected Device: " << deviceProperties.properties.deviceName << '\n';
+        physicalDevice = device;
+
+        VkPhysicalDeviceProperties properties;
+        vkGetPhysicalDeviceProperties(
+            physicalDevice,
+            &properties
+        );
+
+        std::cout
+            << "Selected Device: "
+            << properties.deviceName
+            << '\n';
+
+        return;
+    }
+
+    throw std::runtime_error(
+        "Failed to find a suitable GPU."
+    );
 }
-
 
 void VulkanCore::createLogicalDevice() {
     uint32_t queueFamilyCnt{ 0 };
@@ -226,7 +244,10 @@ void VulkanCore::createLogicalDevice() {
     }
 
     VkPhysicalDeviceVulkan12Features enabledVk12Features{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .pNext = nullptr,
+        .bufferDeviceAddress = VK_TRUE,
+        .descriptorIndexing = VK_TRUE
     };
 
     VkPhysicalDeviceVulkan13Features enabledVk13Features{
@@ -533,6 +554,22 @@ void VulkanCore::createSyncObjects() {
     }
 }
 
+bool VulkanCore::checkSuitableDevice(VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    bool isGPU =
+        deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+        deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+
+    bool supportsRequiredFeatures =
+        deviceFeatures.samplerAnisotropy;
+
+    return isGPU && supportsRequiredFeatures;
+}
 
 SwapchainSupportDetails VulkanCore::querySwapChainSupport(
     VkPhysicalDevice physicalDevice,

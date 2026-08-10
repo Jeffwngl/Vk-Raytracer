@@ -12,6 +12,48 @@
 
 #include "Utils.h"
 
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+#ifdef NDEBUG
+    const bool enableValidationLayers = false;
+#else
+    const bool enableValidationLayers = true;
+#endif
+
+bool checkValidationLayerSupport() {
+    uint32_t layerCount;
+
+    vkEnumerateInstanceLayerProperties(
+        &layerCount,
+        nullptr
+    );
+
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+
+    vkEnumerateInstanceLayerProperties(
+        &layerCount,
+        availableLayers.data()
+    );
+
+    for (const char* layerName : validationLayers) {
+        bool found = false;
+
+        for (const auto& layer : availableLayers) {
+            if (strcmp(layerName, layer.layerName) == 0) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 bool VulkanCore::initialize(uint32_t deviceNum) {
     if (!std::filesystem::is_directory("assets")) {
@@ -82,6 +124,13 @@ void VulkanCore::createWindow() {
 }
 
 void VulkanCore::initializeInstance() {
+    if (enableValidationLayers &&
+        !checkValidationLayerSupport()) {
+        throw std::runtime_error(
+            "Validation layers requested but unavailable."
+        );
+    }
+
     VkApplicationInfo appInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Vulkan Raytracer",
@@ -99,6 +148,14 @@ void VulkanCore::initializeInstance() {
         .enabledExtensionCount = instanceExtensionCnt,
         .ppEnabledExtensionNames = instanceExtensions
     };
+
+    if (enableValidationLayers) {
+        instanceCI.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        instanceCI.ppEnabledLayerNames = validationLayers.data();
+    } 
+    else {
+        instanceCI.enabledLayerCount = 0;
+    }
 
     utils::check(vkCreateInstance(&instanceCI, nullptr, &instance));
 }
@@ -230,11 +287,12 @@ void VulkanCore::createLogicalDevice() {
 
 
 void VulkanCore::initializeVMA() {
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = physicalDevice;
-    allocatorInfo.device = device;
-    allocatorInfo.instance = instance;
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    VmaAllocatorCreateInfo allocatorInfo = {
+        .physicalDevice = physicalDevice,
+        .device = device,
+        .instance = instance,
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
+    };
     vmaCreateAllocator(&allocatorInfo, &allocator);
 }
 
@@ -383,13 +441,10 @@ void VulkanCore::createRenderPass() {
     VkSubpassDependency dependency{
         .srcSubpass = VK_SUBPASS_EXTERNAL,
         .dstSubpass = 0,
-
         .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-
         .srcAccessMask = 0,
         .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-
         .dependencyFlags = 0,
     };
 

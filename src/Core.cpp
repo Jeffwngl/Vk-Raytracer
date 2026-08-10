@@ -12,48 +12,13 @@
 
 #include "Utils.h"
 
-const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-};
+#define NDEBUG
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
     const bool enableValidationLayers = true;
 #endif
-
-bool checkValidationLayerSupport() {
-    uint32_t layerCount;
-
-    vkEnumerateInstanceLayerProperties(
-        &layerCount,
-        nullptr
-    );
-
-    std::vector<VkLayerProperties> availableLayers(layerCount);
-
-    vkEnumerateInstanceLayerProperties(
-        &layerCount,
-        availableLayers.data()
-    );
-
-    for (const char* layerName : validationLayers) {
-        bool found = false;
-
-        for (const auto& layer : availableLayers) {
-            if (strcmp(layerName, layer.layerName) == 0) {
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            return false;
-        }
-    }
-
-    return true;
-}
 
 bool VulkanCore::initialize(uint32_t deviceNum) {
     if (!std::filesystem::is_directory("assets")) {
@@ -137,16 +102,27 @@ void VulkanCore::initializeInstance() {
         .apiVersion = VK_API_VERSION_1_3,
     };
 
-    uint32_t instanceExtensionCnt{ 0 };
-    char const* const* instanceExtensions{
-        SDL_Vulkan_GetInstanceExtensions(&instanceExtensionCnt)
+    uint32_t sdlExtensionCnt{ 0 }; // SDL required extensions
+    char const* const* sdlExtensions{
+        SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCnt)
     };
+
+    std::vector<const char*> extensions(
+        sdlExtensions,
+        sdlExtensions + sdlExtensionCnt
+    );
+
+    if (enableValidationLayers) {
+        extensions.push_back(
+            VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+        );
+    }
 
     VkInstanceCreateInfo instanceCI{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &appInfo,
-        .enabledExtensionCount = instanceExtensionCnt,
-        .ppEnabledExtensionNames = instanceExtensions
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data() 
     };
 
     if (enableValidationLayers) {
@@ -271,7 +247,7 @@ void VulkanCore::createLogicalDevice() {
         .pNext = &enabledVk12Features,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queueCI,
-        .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size(),
+        .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
         .ppEnabledExtensionNames = requiredDeviceExtensions.data()
     };
 
@@ -639,6 +615,123 @@ VkExtent2D VulkanCore::chooseSwapExtent(
     }
 }
 
+bool VulkanCore::checkValidationLayerSupport() {
+    uint32_t layerCount;
+
+    vkEnumerateInstanceLayerProperties(
+        &layerCount,
+        nullptr
+    );
+
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+
+    vkEnumerateInstanceLayerProperties(
+        &layerCount,
+        availableLayers.data()
+    );
+
+    for (const char* layerName : validationLayers) {
+        bool found = false;
+
+        for (const auto& layer : availableLayers) {
+            if (strcmp(layerName, layer.layerName) == 0) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL
+VulkanCore::debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+    void* userData)
+{
+    std::cerr
+        << "[Vulkan Validation] "
+        << callbackData->pMessage
+        << '\n';
+
+    return VK_FALSE;
+}
+
+void VulkanCore::setupDebugMessenger() {
+    if (!enableValidationLayers) {
+        return;
+    }
+
+    VkDebugUtilsMessengerCreateInfoEXT debugCI{
+        .sType =
+            VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+
+        .messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+
+        .messageType =
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+
+        .pfnUserCallback = debugCallback,
+    };
+
+    auto createDebugMessenger =
+        reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(
+                instance,
+                "vkCreateDebugUtilsMessengerEXT"
+            )
+        );
+
+    if (!createDebugMessenger) {
+        throw std::runtime_error(
+            "Failed to find vkCreateDebugUtilsMessengerEXT."
+        );
+    }
+
+    utils::check(
+        createDebugMessenger(
+            instance,
+            &debugCI,
+            nullptr,
+            &debugMessenger
+        )
+    );
+}
+
+void VulkanCore::destroyDebugMessenger() {
+    if (!enableValidationLayers ||
+        debugMessenger == VK_NULL_HANDLE) {
+        return;
+    }
+
+    auto destroyDebugMessenger =
+        reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(
+                instance,
+                "vkDestroyDebugUtilsMessengerEXT"
+            )
+        );
+
+    if (destroyDebugMessenger) {
+        destroyDebugMessenger(
+            instance,
+            debugMessenger,
+            nullptr
+        );
+    }
+
+    debugMessenger = VK_NULL_HANDLE;
+}
 
 void VulkanCore::cleanUp() {
     vkDeviceWaitIdle(device);
@@ -661,6 +754,7 @@ void VulkanCore::cleanUp() {
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
+    destroyDebugMessenger();
     vkDestroyInstance(instance, nullptr);
 
     SDL_DestroyWindow(window);

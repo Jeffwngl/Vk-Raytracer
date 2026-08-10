@@ -1,14 +1,12 @@
 #pragma once
 
-#include "SDL3/SDL_events.h"
-#include "SDL3/SDL_keycode.h"
 #include <cstdint>
+#include <stdint.h>
 #include <vector>
 
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
-#include <vulkan/vulkan_core.h>
 
 struct SwapchainSupportDetails {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
@@ -40,9 +38,12 @@ public:
     VkDevice getDevice() const;
     VkQueue getQueue() const;
     VkSwapchainKHR getSwapchain() const;
+    glm::vec2 getWindowSize() const;
 
     const std::vector<VkImage>& getSwapchainImages() const;
     const std::vector<VkImageView>& getSwapchainImageViews() const;
+    
+    FrameData& getFrameData(uint32_t index);
 
     void close();
 
@@ -61,6 +62,18 @@ private:
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects();
+
+    bool checkValidationLayerSupport();
+
+    void setupDebugMessenger();
+    void destroyDebugMessenger();
+
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+        void* userData
+    );
 
     SwapchainSupportDetails querySwapChainSupport(
         VkPhysicalDevice physicalDevice,
@@ -89,6 +102,8 @@ private:
 
     VkSurfaceKHR surface{ VK_NULL_HANDLE };
 
+    VmaAllocator allocator{ VK_NULL_HANDLE };
+
     VkSwapchainKHR swapchain{ VK_NULL_HANDLE };
     VkFormat swapChainFormat{ VK_FORMAT_UNDEFINED };
 
@@ -100,4 +115,10 @@ private:
     VkCommandPool commandPool{ VK_NULL_HANDLE };
 
     std::vector<FrameData> frames{};
+    
+    VkDebugUtilsMessengerEXT debugMessenger{VK_NULL_HANDLE};
+    std::vector<const char*> extensions;
+    const std::vector<const char*> validationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
 };

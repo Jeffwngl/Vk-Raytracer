@@ -21,7 +21,7 @@
     const bool enableValidationLayers = true;
 #endif
 
-bool VulkanCore::initialize(uint32_t deviceNum) {
+bool VulkanCore::initialize() {
     if (!std::filesystem::is_directory("assets")) {
         std::cerr << "Could not find assets folder from working director." << '\n';
         exit(-1);
@@ -30,7 +30,6 @@ bool VulkanCore::initialize(uint32_t deviceNum) {
     createWindow();
     initializeInstance();
     createSurface();
-    initializeDevice(deviceNum);
     createLogicalDevice();
     initializeVMA();
     createSwapChain();

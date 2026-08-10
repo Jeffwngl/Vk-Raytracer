@@ -33,7 +33,7 @@ public:
 
     bool running = false;
 
-    bool initialize(uint32_t deviceNum);
+    bool initialize();
 
     VkDevice getDevice() const;
     VkQueue getQueue() const;
@@ -51,7 +51,7 @@ private:
     void createWindow();
     void initializeInstance();
     void createSurface();
-    void initializeDevice(uint32_t deviceNum);
+    void initializeDevice();
     void createLogicalDevice();
 
     void initializeVMA();
@@ -74,6 +74,8 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
         void* userData
     );
+
+    bool checkSuitableDevice(VkPhysicalDevice device);
 
     SwapchainSupportDetails querySwapChainSupport(
         VkPhysicalDevice physicalDevice,

@@ -171,17 +171,12 @@ void VulkanCore::initializeDevice() {
             &properties
         );
 
-        std::cout
-            << "Selected Device: "
-            << properties.deviceName
-            << '\n';
+        std::cout << "Selected Device: " << properties.deviceName << '\n';
 
         return;
     }
 
-    throw std::runtime_error(
-        "Failed to find a suitable GPU."
-    );
+    throw std::runtime_error("Failed to find a suitable GPU.");
 }
 
 void VulkanCore::createLogicalDevice() {
@@ -294,10 +289,9 @@ void VulkanCore::initializeVMA() {
 
 
 void VulkanCore::createSwapChain() {
-    SwapchainSupportDetails supportDetails =
-        querySwapChainSupport(physicalDevice, surface);
+    SwapchainSupportDetails supportDetails = querySwapChainSupport(physicalDevice, surface);
 
-    uint32_t swapFormat{ 0 };
+    uint32_t swapFormat{ 0 }; // fall back to 0
 
     for (size_t i = 0; i < supportDetails.formats.size(); ++i) {
         if (
@@ -321,7 +315,7 @@ void VulkanCore::createSwapChain() {
 
     if (swapPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) {
         swapPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    }
+    } // default to FIFO if mailbox not available
 
     VkSurfaceCapabilitiesKHR surfaceCaps{};
     utils::check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -333,7 +327,8 @@ void VulkanCore::createSwapChain() {
     VkExtent2D swapchainExtent = chooseSwapExtent(surfaceCaps);
 
     uint32_t imageCnt = surfaceCaps.minImageCount + 1;
-
+    
+    // make sure not over max num of images
     if (surfaceCaps.maxImageCount > 0 && imageCnt > surfaceCaps.maxImageCount) {
         imageCnt = surfaceCaps.maxImageCount;
     }
@@ -351,7 +346,7 @@ void VulkanCore::createSwapChain() {
         .imageArrayLayers = 1,
         .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .preTransform = surfaceCaps.currentTransform,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // ignore alpha for now
         .presentMode = swapPresentMode,
         .clipped = VK_TRUE,
         .oldSwapchain = VK_NULL_HANDLE
@@ -504,7 +499,7 @@ void VulkanCore::createCommandBuffers() {
     }
 }
 
-
+// TODO: remove or replace with a create sempahores call
 void VulkanCore::createSyncObjects() {
     VkSemaphoreCreateInfo semaphoreCI{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
@@ -516,41 +511,35 @@ void VulkanCore::createSyncObjects() {
     };
 
     for (FrameData& frame : frames) {
-        utils::check(vkCreateSemaphore(
-            device,
-            &semaphoreCI,
-            nullptr,
-            &frame.imageAvailable
-        ));
+        frame.imageAvailable  = createSemaphore();
+        frame.computeFinished = createSemaphore();
+        frame.renderFinished  = createSemaphore();
 
-        utils::check(vkCreateSemaphore(
-            device,
-            &semaphoreCI,
-            nullptr,
-            &frame.computeFinished
-        ));
+        frame.computeFence  = createFence();
+        frame.graphicsFence = createFence();
+	}
+}
 
-        utils::check(vkCreateSemaphore(
-            device,
-            &semaphoreCI,
-            nullptr,
-            &frame.renderFinished
-        ));
+VkSemaphore VulkanCore::createSemaphore() {
+	VkSemaphoreCreateInfo semaphoreCI{
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		.flags = 0
+	};
+	
+	VkSemaphore semaphore;
+	utils::check(vkCreateSemaphore(device, &semaphoreCI, nullptr, &semaphore));
+	return semaphore;
+}
 
-        utils::check(vkCreateFence(
-            device,
-            &fenceCI,
-            nullptr,
-            &frame.computeFence
-        ));
+VkFence VulkanCore::createFence() {
+	VkFenceCreateInfo fenceCI{
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,	
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT
+	};
 
-        utils::check(vkCreateFence(
-            device,
-            &fenceCI,
-            nullptr,
-            &frame.graphicsFence
-        ));
-    }
+	VkFence fence;
+	utils::check(vkCreateFence(device, &fenceCI, nullptr, &fence));
+	return fence;
 }
 
 bool VulkanCore::checkSuitableDevice(VkPhysicalDevice device) {

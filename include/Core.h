@@ -61,8 +61,10 @@ private:
 
     void createCommandPool();
     void createCommandBuffers();
-    void createSyncObjects();
-
+    void createSyncObjects(); 
+	VkSemaphore createSemaphore();
+	VkFence createFence();
+	
     bool checkValidationLayerSupport();
 
     void setupDebugMessenger();

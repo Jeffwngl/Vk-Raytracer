@@ -32,6 +32,11 @@ void Renderer::drawFrame(FrameData& frame) {
 
     resetFences(frame);
     resetCommandBuffers(frame);
+
+    recordCommandBuffers(
+        frame.computeCommandBuffer,
+        imageIndex
+    );
 }
 
 void Renderer::createOutputImage() {
@@ -158,69 +163,27 @@ void Renderer::resetCommandBuffers(FrameData& frame) {
 }
 
 void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
-	VkImageSubresourceRange imageRange{
-		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-		.baseMipLevel = 0,
-		.levelCount = 1,
-		.baseArrayLayer = 0,
-		.layerCount = 1
-	};
-
-	// setup barriers
-	VkImageMemoryBarrier presentToClearBarrier = {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.pNext = nullptr,
-		.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = vulkanCore->getSwapchainImage(imageIndex),
-		.subresourceRange = imageRange
-	};
-
-	// Change layout of image to be optimal for presenting
-	VkImageMemoryBarrier clearToPresentBarrier = {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.pNext = nullptr,
-		.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-		.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-		.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = vulkanCore->getSwapchainImage(imageIndex),
-		.subresourceRange = imageRange
-	};
-
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
     };
 
     utils::check(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		0, // dependency flags
-		0, nullptr, // memory barriers
-		0, nullptr, // buffer memory barriers
-		1, &presentToClearBarrier // image memory barriers
-	);
-
 	VkImage swapchainImage = vulkanCore->getSwapchainImages()[imageIndex];
 
     uint32_t width = static_cast<uint32_t>(vulkanCore->getWindowSize().x);
     uint32_t height = static_cast<uint32_t>(vulkanCore->getWindowSize().y);
 
-	transitionImage(
-		commandBuffer,
-		outputImage,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL
-	);
+    if (!outputImageInitialized) {
+        transitionImage(
+            commandBuffer,
+            outputImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL
+        );
+
+        outputImageInitialized = true;
+    };
 
     vkCmdBindPipeline(
         commandBuffer,
@@ -243,11 +206,12 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
 
 	vkCmdDispatch(
 		commandBuffer,
-		width / 16,
-		height / 16,
+		(width + 15) / 16,
+		(height + 15) / 16,
 		1
 	);
-	
+    
+    // after compute has finished writing
 	transitionImage( // prepare output image
 		commandBuffer,
 		outputImage,
@@ -299,17 +263,13 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
     );
-
-	// TODO: finish implementing this
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &clearToPresentBarrier
-	);
+    
+    transitionImage(
+        commandBuffer,
+        outputImage,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL
+    );
 
     utils::check(vkEndCommandBuffer(commandBuffer));
 }

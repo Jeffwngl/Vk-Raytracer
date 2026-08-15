@@ -3,6 +3,7 @@
 #include "Core.h"
 #include "ComputePipeline.h"
 #include "ComputeDescriptorSet.h"
+#include "Queue.h"
 
 #include <iostream>
 #include <stdbool.h>
@@ -47,4 +48,7 @@ private:
     VkImage outputImage{ VK_NULL_HANDLE };
     VkImageView outputImageView{ VK_NULL_HANDLE };
     VmaAllocation outputImageAllocation{ VK_NULL_HANDLE };
+	// VkQueue queue{ VK_NULL_HANDLE };
+	Queue queue{ nullptr };
+	// TODO: swith to queue class
 };

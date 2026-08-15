@@ -32,10 +32,7 @@ void Renderer::drawFrame(FrameData& frame) {
 
     resetFences(frame);
     resetCommandBuffers(frame);
-    
-
 }
-
 
 void Renderer::createOutputImage() {
     VkImageCreateInfo imageCI{
@@ -64,14 +61,20 @@ void Renderer::createOutputImage() {
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
+    VmaAllocationCreateInfo allocationCI{
+        .usage = VMA_MEMORY_USAGE_AUTO
+    };
 
-    vkCreateImage(
-        vulkanCore->getDevice(),
+    utils::check(vmaCreateImage(
+        vulkanCore->getAllocator(),
         &imageCI,
-        nullptr,
-        &outputImage
-    );
+        &allocationCI,
+        &outputImage,
+        &outputImageAllocation,
+        nullptr
+    ));
 }
+
 
 void Renderer::createOutputImageView() {
     VkImageViewCreateInfo imageViewCI{

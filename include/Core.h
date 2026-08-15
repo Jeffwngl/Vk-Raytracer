@@ -7,6 +7,10 @@
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
+#include "Queue.h"
 
 struct SwapchainSupportDetails {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
@@ -36,14 +40,20 @@ public:
     bool initialize();
 
     VkDevice getDevice() const;
-    VkQueue getQueue() const;
+    Queue getQueue() const; // TODO: changed from VkQueue
+	// uint32_t getQueueFamily();
     VkSwapchainKHR getSwapchain() const;
     glm::vec2 getWindowSize() const;
-
+    VmaAllocator getVmaAllocator() const;
+    
+	const VkImage& getSwapchainImage(uint32_t imageIndex) const;
     const std::vector<VkImage>& getSwapchainImages() const;
     const std::vector<VkImageView>& getSwapchainImageViews() const;
     
     FrameData& getFrameData(uint32_t index);
+
+	VkSemaphore createSemaphore();
+	VkFence createFence();
 
     void close();
 
@@ -62,9 +72,7 @@ private:
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects(); 
-	VkSemaphore createSemaphore();
-	VkFence createFence();
-	
+
     bool checkValidationLayerSupport();
 
     void setupDebugMessenger();
@@ -97,8 +105,10 @@ private:
 
     VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
     VkDevice device{ VK_NULL_HANDLE };
-
-    VkQueue graphicsQueue{ VK_NULL_HANDLE };
+	
+	// TODO: get rid of this and replace with queue class
+    // VkQueue graphicsQueue{ VK_NULL_HANDLE };
+	Queue queue;
     uint32_t queueFamily{ 0 };
 
     SDL_Window* window{ nullptr };

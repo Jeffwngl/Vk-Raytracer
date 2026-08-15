@@ -8,8 +8,6 @@
 #include <stdexcept>
 
 #include <SDL3/SDL_vulkan.h>
-#define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
 
 #include "Utils.h"
 
@@ -35,7 +33,8 @@ bool VulkanCore::initialize() {
     createSwapChain();
     createCommandPool();
     createCommandBuffers();
-    createSyncObjects();
+	queue.initialize(device, swapchain, queueFamily, 0); // TODO: integrate this
+    // createSyncObjects();
 
     running = true;
 
@@ -46,16 +45,25 @@ void VulkanCore::close() {
     running = false;
 }
 
+VmaAllocator VulkanCore::getVmaAllocator() const {
+    return allocator;
+}
+
 VkDevice VulkanCore::getDevice() const {
     return this->device;
 }
 
-VkQueue VulkanCore::getQueue() const {
-    return this->graphicsQueue;
+Queue VulkanCore::getQueue() const {
+	return this->queue;
+    // return this->graphicsQueue;
 }
 
 VkSwapchainKHR VulkanCore::getSwapchain() const {
     return this->swapchain;
+}
+
+const VkImage& VulkanCore::getSwapchainImage(uint32_t imageIndex) const {
+	return this->swapChainImages[imageIndex];
 }
 
 const std::vector<VkImage>& VulkanCore::getSwapchainImages() const {
@@ -273,7 +281,7 @@ void VulkanCore::createLogicalDevice() {
         &device
     ));
 
-    vkGetDeviceQueue(device, queueFamily, 0, &graphicsQueue);
+    vkGetDeviceQueue(device, queueFamily, 0, &queue.getQueue());
 }
 
 
@@ -499,7 +507,7 @@ void VulkanCore::createCommandBuffers() {
     }
 }
 
-// TODO: remove or replace with a create sempahores call
+// currently unused
 void VulkanCore::createSyncObjects() {
     VkSemaphoreCreateInfo semaphoreCI{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO

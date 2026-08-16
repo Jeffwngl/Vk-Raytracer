@@ -11,7 +11,7 @@
 
 #include "Utils.h"
 
-#define NDEBUG
+// #define NDEBUG
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -27,14 +27,16 @@ bool VulkanCore::initialize() {
 
     createWindow();
     initializeInstance();
+    setupDebugMessenger();
     createSurface();
+    initializeDevice();
     createLogicalDevice();
     initializeVMA();
     createSwapChain();
     createCommandPool();
     createCommandBuffers();
-	queue.initialize(device, swapchain, queueFamily, 0); // TODO: integrate this
-    // createSyncObjects();
+	// queue.initialize(device, swapchain, queueFamily, 0); // TODO: integrate this
+    createSyncObjects();
 
     running = true;
 
@@ -53,8 +55,8 @@ VkDevice VulkanCore::getDevice() const {
     return this->device;
 }
 
-Queue VulkanCore::getQueue() const {
-	return this->queue;
+const Queue& VulkanCore::getQueue() const {
+	return queue;
     // return this->graphicsQueue;
 }
 
@@ -206,7 +208,11 @@ void VulkanCore::createLogicalDevice() {
                 i
             );
 
-        if ((queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && supportsPresentation) {
+        if (
+                (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && 
+                (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && 
+                supportsPresentation
+            ) {
             queueFamily = i;
             break;
         }
@@ -281,9 +287,13 @@ void VulkanCore::createLogicalDevice() {
         &device
     ));
 
-    vkGetDeviceQueue(device, queueFamily, 0, &queue.getQueue());
+    // vkGetDeviceQueue(device, queueFamily, 0, &queue.getQueue());
+    queue.initialize(
+        device,
+        queueFamily,
+        0
+    );
 }
-
 
 void VulkanCore::initializeVMA() {
     VmaAllocatorCreateInfo allocatorInfo = {
@@ -292,9 +302,8 @@ void VulkanCore::initializeVMA() {
         .instance = instance,
         .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
     };
-    vmaCreateAllocator(&allocatorInfo, &allocator);
+    utils::check(vmaCreateAllocator(&allocatorInfo, &allocator));
 }
-
 
 void VulkanCore::createSwapChain() {
     SwapchainSupportDetails supportDetails = querySwapChainSupport(physicalDevice, surface);
@@ -503,7 +512,7 @@ void VulkanCore::createCommandBuffers() {
 
     for (size_t i = 0; i < frames.size(); ++i) {
         frames[i].computeCommandBuffer = buffers[i * 2];
-        frames[i].graphicsCommandBuffer = buffers[i * 2 + 1];
+        // frames[i].graphicsCommandBuffer = buffers[i * 2 + 1];
     }
 }
 
@@ -520,11 +529,11 @@ void VulkanCore::createSyncObjects() {
 
     for (FrameData& frame : frames) {
         frame.imageAvailable  = createSemaphore();
-        frame.computeFinished = createSemaphore();
+        // frame.computeFinished = createSemaphore();
         frame.renderFinished  = createSemaphore();
 
         frame.computeFence  = createFence();
-        frame.graphicsFence = createFence();
+        // frame.graphicsFence = createFence();
 	}
 }
 
@@ -771,11 +780,11 @@ void VulkanCore::cleanUp() {
 
     for (FrameData& frame : frames) {
         vkDestroySemaphore(device, frame.imageAvailable, nullptr);
-        vkDestroySemaphore(device, frame.computeFinished, nullptr);
+        // vkDestroySemaphore(device, frame.computeFinished, nullptr);
         vkDestroySemaphore(device, frame.renderFinished, nullptr);
 
         vkDestroyFence(device, frame.computeFence, nullptr);
-        vkDestroyFence(device, frame.graphicsFence, nullptr);
+        // vkDestroyFence(device, frame.graphicsFence, nullptr);
     }
 
     vkDestroyCommandPool(device, commandPool, nullptr);
@@ -785,6 +794,12 @@ void VulkanCore::cleanUp() {
     }
 
     vkDestroySwapchainKHR(device, swapchain, nullptr);
+    
+    if (allocator != VK_NULL_HANDLE) {
+        vmaDestroyAllocator(allocator);
+        allocator = VK_NULL_HANDLE;
+    }
+
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     destroyDebugMessenger();

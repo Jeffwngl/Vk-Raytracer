@@ -7,7 +7,6 @@
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <glm/glm.hpp>
-#define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
 #include "Queue.h"
@@ -20,14 +19,14 @@ struct SwapchainSupportDetails {
 
 struct FrameData {
     VkSemaphore imageAvailable{ VK_NULL_HANDLE };
-    VkSemaphore computeFinished{ VK_NULL_HANDLE };
+    // VkSemaphore computeFinished{ VK_NULL_HANDLE };
     VkSemaphore renderFinished{ VK_NULL_HANDLE };
 
     VkFence computeFence{ VK_NULL_HANDLE };
-    VkFence graphicsFence{ VK_NULL_HANDLE };
+    // VkFence graphicsFence{ VK_NULL_HANDLE };
 
     VkCommandBuffer computeCommandBuffer{ VK_NULL_HANDLE };
-    VkCommandBuffer graphicsCommandBuffer{ VK_NULL_HANDLE };
+    // VkCommandBuffer graphicsCommandBuffer{ VK_NULL_HANDLE };
 };
 
 class VulkanCore {
@@ -40,7 +39,7 @@ public:
     bool initialize();
 
     VkDevice getDevice() const;
-    Queue getQueue() const; // TODO: changed from VkQueue
+    const Queue& getQueue() const; // TODO: changed from VkQueue
 	// uint32_t getQueueFamily();
     VkSwapchainKHR getSwapchain() const;
     glm::vec2 getWindowSize() const;

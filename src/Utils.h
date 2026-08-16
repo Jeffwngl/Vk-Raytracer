@@ -1,6 +1,13 @@
+#pragma once
+
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
-#include <vulkan/vulkan_core.h>
-#include <string.h>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include <vulkan/vulkan.h>
 
 namespace utils {
     inline void check(VkResult result) {
@@ -17,7 +24,7 @@ namespace utils {
         }
     }
 
-    inline std::vector<char> readFile(std::string& path) {
+    inline std::vector<char> readFile(const std::string& path) {
         std::ifstream file(path, std::ios::ate | std::ios::binary);
 
         if (!file.is_open()) {

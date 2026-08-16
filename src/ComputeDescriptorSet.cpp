@@ -1,6 +1,5 @@
 #include "ComputeDescriptorSet.h"
 #include "Utils.h"
-#include <vulkan/vulkan_core.h>
 
 void ComputeDescriptorSet::initialize(VulkanCore& vkCore, VkImageView outputImageView) {
     vulkanCore = &vkCore;

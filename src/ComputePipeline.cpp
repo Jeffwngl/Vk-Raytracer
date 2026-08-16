@@ -1,24 +1,7 @@
 #include "ComputePipeline.h"
 #include "Utils.h"
-#include <vulkan/vulkan_core.h>
 
-ComputePipeline::~ComputePipeline() {
-    if (!vulkanCore) {
-        return;
-    };
-
-    VkDevice device = vulkanCore->getDevice();
-
-    if (pipeline != VK_NULL_HANDLE) {
-        vkDestroyPipeline(device, pipeline, nullptr);
-    }
-
-    if (pipelineLayout != VK_NULL_HANDLE) {
-        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    }
-}
-
-void ComputePipeline::initialize(VulkanCore& vkCore, std::string path, VkDescriptorSetLayout descriptorSetLayout) {
+void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescriptorSetLayout descriptorSetLayout) {
     vulkanCore = &vkCore;
 
     auto computeShader = utils::readFile(path); // readfile
@@ -26,7 +9,7 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string path, VkDescrip
     VkShaderModuleCreateInfo shaderModuleCI{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = computeShader.size(),
-        .pCode = // computeShader data
+        .pCode = reinterpret_cast<const uint32_t*>(computeShader.data())
     };
 
     VkShaderModule shaderModule;
@@ -82,4 +65,20 @@ VkPipeline ComputePipeline::getPipeline() {
 
 VkPipelineLayout ComputePipeline::getPipelineLayout() {
     return pipelineLayout;
+}
+
+ComputePipeline::~ComputePipeline() {
+    if (!vulkanCore) {
+        return;
+    };
+
+    VkDevice device = vulkanCore->getDevice();
+
+    if (pipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, pipeline, nullptr);
+    }
+
+    if (pipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    }
 }

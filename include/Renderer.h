@@ -16,7 +16,7 @@ public:
 
     bool initialize(VulkanCore& vkCore);
 
-    void drawFrame(FrameData& frame);
+    void drawFrame();
     void cleanUp();
 
 private:
@@ -34,7 +34,7 @@ private:
     // transition outputImage from undefined to general
     void transitionImage(
 		VkCommandBuffer commandBuffer,
-		VKImage image,
+		VkImage image,
 		VkImageLayout oldLayout,
 		VkImageLayout newLayout
 	);
@@ -42,13 +42,15 @@ private:
 private:
     VulkanCore* vulkanCore{ nullptr };
     uint32_t currentFrame{ 0 };
+    bool outputImageInitialized{ false };
 
     ComputePipeline computePipeline;
     ComputeDescriptorSet computeDescriptorSet;
     VkImage outputImage{ VK_NULL_HANDLE };
     VkImageView outputImageView{ VK_NULL_HANDLE };
     VmaAllocation outputImageAllocation{ VK_NULL_HANDLE };
+    uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
 	// VkQueue queue{ VK_NULL_HANDLE };
-	Queue queue{ nullptr };
+	Queue* queue{ nullptr };
 	// TODO: swith to queue class
 };

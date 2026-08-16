@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Core.h"
 
 #include <string>
@@ -5,10 +7,10 @@
 
 class ComputePipeline {
 public:
-    ComputePipeline = default;
-    ~ComputePipeline;
+    ComputePipeline() = default;
+    ~ComputePipeline();
 
-    void initialize(VulkanCore& vkCore, std::string path, VkDescriptorSetLayout descriptorSetLayout);
+    void initialize(VulkanCore& vkCore, std::string& path, VkDescriptorSetLayout descriptorSetLayout);
 
     VkPipeline getPipeline();
     VkPipelineLayout getPipelineLayout();
@@ -17,5 +19,4 @@ private:
     VulkanCore* vulkanCore;
     VkPipeline pipeline{ VK_NULL_HANDLE };
     VkPipelineLayout pipelineLayout{ VK_NULL_HANDLE };
-}
-
+};

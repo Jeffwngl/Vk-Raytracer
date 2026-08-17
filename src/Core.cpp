@@ -8,10 +8,9 @@
 #include <stdexcept>
 
 #include <SDL3/SDL_vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include "Utils.h"
-
-// #define NDEBUG
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -35,7 +34,6 @@ bool VulkanCore::initialize() {
     createSwapChain();
     createCommandPool();
     createCommandBuffers();
-	// queue.initialize(device, swapchain, queueFamily, 0); // TODO: integrate this
     createSyncObjects();
 
     running = true;
@@ -57,7 +55,6 @@ VkDevice VulkanCore::getDevice() const {
 
 const Queue& VulkanCore::getQueue() const {
 	return queue;
-    // return this->graphicsQueue;
 }
 
 VkSwapchainKHR VulkanCore::getSwapchain() const {
@@ -82,6 +79,12 @@ FrameData& VulkanCore::getFrameData(uint32_t index) {
 
 glm::vec2 VulkanCore::getWindowSize() const {
     return this->windowSize;
+}
+
+VkSemaphore VulkanCore::getRenderFinishedSemaphore(
+    uint32_t imageIndex
+) const {
+    return renderFinishedSemaphores[imageIndex];
 }
 
 void VulkanCore::createWindow() {
@@ -110,6 +113,7 @@ void VulkanCore::initializeInstance() {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Vulkan Raytracer",
         .apiVersion = VK_API_VERSION_1_3,
+        .pNext = VK_NULL_HANDLE
     };
 
     uint32_t sdlExtensionCnt{ 0 }; // SDL required extensions
@@ -132,7 +136,8 @@ void VulkanCore::initializeInstance() {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &appInfo,
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data() 
+        .ppEnabledExtensionNames = extensions.data(),
+        .pNext = VK_NULL_HANDLE
     };
 
     if (enableValidationLayers) {
@@ -165,7 +170,8 @@ void VulkanCore::initializeDevice() {
     utils::check(vkEnumeratePhysicalDevices(instance, &deviceCnt, devices.data()));
 
     VkPhysicalDeviceProperties2 deviceProperties{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+        .pNext = VK_NULL_HANDLE
     };
 
     for (VkPhysicalDevice device : devices) {
@@ -287,7 +293,6 @@ void VulkanCore::createLogicalDevice() {
         &device
     ));
 
-    // vkGetDeviceQueue(device, queueFamily, 0, &queue.getQueue());
     queue.initialize(
         device,
         queueFamily,
@@ -302,6 +307,7 @@ void VulkanCore::initializeVMA() {
         .instance = instance,
         .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
     };
+
     utils::check(vmaCreateAllocator(&allocatorInfo, &allocator));
 }
 
@@ -414,7 +420,7 @@ void VulkanCore::createSwapChain() {
     }
 }
 
-
+/*
 void VulkanCore::createRenderPass() {
     VkAttachmentDescription colorAttachment{
         .flags = 0,
@@ -475,7 +481,7 @@ void VulkanCore::createRenderPass() {
         &renderPass
     ));
 }
-
+*/
 
 void VulkanCore::createCommandPool() {
     VkCommandPoolCreateInfo poolInfo{
@@ -516,7 +522,6 @@ void VulkanCore::createCommandBuffers() {
     }
 }
 
-// currently unused
 void VulkanCore::createSyncObjects() {
     VkSemaphoreCreateInfo semaphoreCI{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO
@@ -529,12 +534,17 @@ void VulkanCore::createSyncObjects() {
 
     for (FrameData& frame : frames) {
         frame.imageAvailable  = createSemaphore();
-        // frame.computeFinished = createSemaphore();
-        frame.renderFinished  = createSemaphore();
 
         frame.computeFence  = createFence();
-        // frame.graphicsFence = createFence();
 	}
+
+    renderFinishedSemaphores.resize(
+        swapChainImages.size()
+    );
+
+    for (VkSemaphore& semaphore : renderFinishedSemaphores) {
+        semaphore = createSemaphore();
+    }
 }
 
 VkSemaphore VulkanCore::createSemaphore() {
@@ -780,11 +790,15 @@ void VulkanCore::cleanUp() {
 
     for (FrameData& frame : frames) {
         vkDestroySemaphore(device, frame.imageAvailable, nullptr);
-        // vkDestroySemaphore(device, frame.computeFinished, nullptr);
-        vkDestroySemaphore(device, frame.renderFinished, nullptr);
-
         vkDestroyFence(device, frame.computeFence, nullptr);
-        // vkDestroyFence(device, frame.graphicsFence, nullptr);
+    }
+
+    for (VkSemaphore semaphore : renderFinishedSemaphores) {
+        vkDestroySemaphore(
+            device,
+            semaphore,
+            nullptr
+        );
     }
 
     vkDestroyCommandPool(device, commandPool, nullptr);

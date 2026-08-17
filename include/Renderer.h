@@ -5,7 +5,6 @@
 #include "ComputeDescriptorSet.h"
 #include "Queue.h"
 
-#include <iostream>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -20,13 +19,11 @@ public:
     void cleanUp();
 
 private:
-    void waitForFences(FrameData& frame);
-    bool acquireSwapchainImage(FrameData& frame, uint32_t& imageIndex);
-    void resetFences(FrameData& frame);
+    void waitForFences(VkDevice device, FrameData& frame);
+    bool acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, FrameData& frame, uint32_t& imageIndex);
+    void resetFences(VkDevice device, FrameData& frame);
     void resetCommandBuffers(FrameData& frame);
     void recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-    void submitCommandBuffers();
-    void presentSwapchainImage();
 
     void createOutputImage();
     void createOutputImageView();
@@ -50,7 +47,4 @@ private:
     VkImageView outputImageView{ VK_NULL_HANDLE };
     VmaAllocation outputImageAllocation{ VK_NULL_HANDLE };
     uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
-	// VkQueue queue{ VK_NULL_HANDLE };
-	Queue* queue{ nullptr };
-	// TODO: swith to queue class
 };

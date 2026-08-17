@@ -13,18 +13,29 @@ public:
         uint32_t queueIndex
     );
 
-    void waitIdle();
+    void waitIdle() const;
 
     VkQueue get() const;
+
+    void submit(
+        VkCommandBuffer commandBuffer,
+        VkSemaphore waitSemaphore,
+        VkPipelineStageFlags waitStage,
+        VkSemaphore signalSemaphore,
+        VkFence
+    ) const;
+
+    VkResult present(
+        VkSwapchainKHR swapchain,
+        uint32_t imageIndex,
+        VkSemaphore waitSemaphore
+    ) const;
+
 	// uint32_t acquireNextImage();
 	// void submitSync(VkCommandBuffer commandBuffer);
 	// void submitAsync(VkCommandBuffer commandBuffer);
 	// void present(uint32_t imageIndex);
 
 private:
-	// VkDevice device{ VK_NULL_HANDLE };
-	// VkSwapchainKHR swapchain{ VK_NULL_HANDLE };
 	VkQueue queue{ VK_NULL_HANDLE };
-	// VkSemaphore renderComplete;
-	// VkSemaphore presentComplete;
 };

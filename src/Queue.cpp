@@ -12,8 +12,7 @@ void Queue::initialize(
         uint32_t queueFamily, 
         uint32_t queueIndex
     ) {
-	// device = vkCore.getDevice();
-	// swapchain = vkCore.getSwapchain();
+
 	vkGetDeviceQueue(
 		device,
 		queueFamily,
@@ -22,66 +21,59 @@ void Queue::initialize(
 	);
 	
 	std::cout << "Queue acquired" << '\n';
-	
-	// renderComplete = vkCore.createSemaphore();
-	// presentComplete = vkCore.createSemaphore();		
 }
 
-void Queue::waitIdle() {
+void Queue::waitIdle() const {
 	vkQueueWaitIdle(queue);
 }
 
-/*
-uint32_t Queue::acquireNextImage() {
-	uint32_t imageIndex{ 0 };
-	utils::check(vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, presentComplete, nullptr, &imageIndex));
-	return imageIndex;
+void Queue::submit(
+    VkCommandBuffer commandBuffer,
+    VkSemaphore waitSemaphore,
+    VkPipelineStageFlags waitStage,
+    VkSemaphore signalSemaphore,
+    VkFence fence
+) const {
+    VkSubmitInfo submitInfo{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &waitSemaphore,
+        .pWaitDstStageMask = &waitStage,
+
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBuffer,
+
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &signalSemaphore
+    };
+
+    utils::check(vkQueueSubmit(
+        queue,
+        1,
+        &submitInfo,
+        fence
+    ));
 }
 
-void Queue::submitSync(VkCommandBuffer commandBuffer) {
-	VkSubmitInfo submitInfo{
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.waitSemaphoreCount = 0,
-		.pWaitSemaphores = VK_NULL_HANDLE,
-		.pWaitDstStageMask = VK_NULL_HANDLE,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffer,
-		.signalSemaphoreCount = 0,
-		.pSignalSemaphores = VK_NULL_HANDLE
-	};
-	
-	utils::check(vkQueueSubmit(queue, 1, &submitInfo, nullptr));
+VkResult Queue::present(
+    VkSwapchainKHR swapchain,
+    uint32_t imageIndex,
+    VkSemaphore waitSemaphore
+) const {
+    VkPresentInfoKHR presentInfo{
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &waitSemaphore,
+
+        .swapchainCount = 1,
+        .pSwapchains = &swapchain,
+        .pImageIndices = &imageIndex
+    };
+
+    return vkQueuePresentKHR(
+        queue,
+        &presentInfo
+    );
 }
-
-void Queue::submitAsync(VkCommandBuffer commandBuffer) {
-	VkPipelineStageFlags waitFlags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	
-	VkSubmitInfo submitInfo{
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &presentComplete,
-		.pWaitDstStageMask = &waitFlags,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffer,
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &renderComplete
-	};
-
-	utils::check(vkQueueSubmit(queue, 1, &submitInfo, nullptr));
-}
-
-void Queue::present(uint32_t imageIndex) {
-	VkPresentInfoKHR presentInfo{
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &renderComplete,
-		.swapchainCount = 1,
-		.pSwapchains = &swapchain,
-		.pImageIndices = &imageIndex
-	};
-
-	utils::check(vkQueuePresentKHR(queue, &presentInfo));
-};
-*/
-
-

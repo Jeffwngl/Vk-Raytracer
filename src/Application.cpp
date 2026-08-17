@@ -13,12 +13,14 @@ bool Application::initialize() {
 void Application::run() {
     while (vulkanCore.running) {
         handleInput();
-        handleDeltaTime();
 
+        if (!vulkanCore.running) {
+            break;
+        }
+
+        handleDeltaTime();
         renderer.drawFrame();
     }
-
-    // handle case do not draw if we are minimized
 }
 
 void Application::handleInput() {
@@ -44,8 +46,4 @@ void Application::handleDeltaTime() {
     lastTime = nowTime;
     nowTime = SDL_GetPerformanceCounter();
     deltaTime = (double)(nowTime - lastTime) / (double)SDL_GetPerformanceFrequency();
-}
-
-Application::~Application() {
-    // 
 }

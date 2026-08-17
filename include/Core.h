@@ -19,14 +19,8 @@ struct SwapchainSupportDetails {
 
 struct FrameData {
     VkSemaphore imageAvailable{ VK_NULL_HANDLE };
-    // VkSemaphore computeFinished{ VK_NULL_HANDLE };
-    VkSemaphore renderFinished{ VK_NULL_HANDLE };
-
     VkFence computeFence{ VK_NULL_HANDLE };
-    // VkFence graphicsFence{ VK_NULL_HANDLE };
-
     VkCommandBuffer computeCommandBuffer{ VK_NULL_HANDLE };
-    // VkCommandBuffer graphicsCommandBuffer{ VK_NULL_HANDLE };
 };
 
 class VulkanCore {
@@ -39,17 +33,18 @@ public:
     bool initialize();
 
     VkDevice getDevice() const;
-    const Queue& getQueue() const; // TODO: changed from VkQueue
-	// uint32_t getQueueFamily();
+    const Queue& getQueue() const;
+    // uint32_t getQueueFamily();
     VkSwapchainKHR getSwapchain() const;
     glm::vec2 getWindowSize() const;
     VmaAllocator getVmaAllocator() const;
-    
 	const VkImage& getSwapchainImage(uint32_t imageIndex) const;
     const std::vector<VkImage>& getSwapchainImages() const;
     const std::vector<VkImageView>& getSwapchainImageViews() const;
-    
     FrameData& getFrameData(uint32_t index);
+    VkSemaphore getRenderFinishedSemaphore(
+        uint32_t imageIndex
+    ) const;
 
 	VkSemaphore createSemaphore();
 	VkFence createFence();
@@ -62,12 +57,9 @@ private:
     void createSurface();
     void initializeDevice();
     void createLogicalDevice();
-
     void initializeVMA();
-
     void createSwapChain();
     void createRenderPass();
-
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects(); 
@@ -101,32 +93,22 @@ private:
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
 
     VkInstance instance{ VK_NULL_HANDLE };
-
     VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
     VkDevice device{ VK_NULL_HANDLE };
-	
-	// TODO: get rid of this and replace with queue class
-    // VkQueue graphicsQueue{ VK_NULL_HANDLE };
 	Queue queue;
     uint32_t queueFamily{ 0 };
-
     SDL_Window* window{ nullptr };
     glm::ivec2 windowSize{};
-
     VkSurfaceKHR surface{ VK_NULL_HANDLE };
-
     VmaAllocator allocator{ VK_NULL_HANDLE };
-
     VkSwapchainKHR swapchain{ VK_NULL_HANDLE };
     VkFormat swapChainFormat{ VK_FORMAT_UNDEFINED };
 
     std::vector<VkImage> swapChainImages{};
     std::vector<VkImageView> swapChainImageViews{};
-
+    std::vector<VkSemaphore> renderFinishedSemaphores;
     VkRenderPass renderPass{ VK_NULL_HANDLE };
-
     VkCommandPool commandPool{ VK_NULL_HANDLE };
-
     std::vector<FrameData> frames{};
     
     VkDebugUtilsMessengerEXT debugMessenger{VK_NULL_HANDLE};

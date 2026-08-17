@@ -7,7 +7,7 @@
 class Application {
 public:
     Application() = default;
-    ~Application();
+    ~Application() = default;
 
     bool initialize();
 

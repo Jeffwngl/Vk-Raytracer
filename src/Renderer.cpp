@@ -10,94 +10,46 @@ bool Renderer::initialize(VulkanCore& vkCore) {
     vulkanCore = &vkCore;
     
     // use separate image view from swapchain to avoid platform specifics
-    // createOutputImage();
-    // createOutputImageView();
+    createOutputImage();
+    createOutputImageView();
     
     std::string path = "assets/shaders/color.comp.spv";
     
-    // computeDescriptorSet.initialize(*vulkanCore, outputImageView);
-    // computePipeline.initialize(*vulkanCore, path, computeDescriptorSet.getDescriptorSetLayout());
+    computeDescriptorSet.initialize(
+            *vulkanCore, 
+            outputImageView
+    );
+    computePipeline.initialize(
+            *vulkanCore, 
+            path, 
+            computeDescriptorSet.getDescriptorSetLayout()
+    );
 
     return true;
 }
 
-// production version
-/*
 void Renderer::drawFrame() {
     FrameData& frame = vulkanCore->getFrameData(currentFrame);
-    waitForFences(frame);
-
-    uint32_t imageIndex;
-    
-    if (!acquireSwapchainImage(frame, imageIndex)) {
-        return;
-    }
-
-    resetFences(frame);
-    resetCommandBuffers(frame);
-
-    recordCommandBuffers(
-        frame.computeCommandBuffer,
-        imageIndex
-    );    
-    
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-*/
-
-// testing version
-void Renderer::drawFrame() {
-    FrameData& frame =
-        vulkanCore->getFrameData(currentFrame);
 
     VkDevice device = vulkanCore->getDevice();
-    VkQueue queue = vulkanCore->getQueue().get();
+    VkSwapchainKHR swapchain = vulkanCore->getSwapchain();    
+    const Queue& queue = vulkanCore->getQueue();
 
     // 1. Wait until this frame is free
-    utils::check(vkWaitForFences(
-        device,
-        1,
-        &frame.computeFence,
-        VK_TRUE,
-        UINT64_MAX
-    ));
+    waitForFences(device, frame);
 
     // 2. Acquire a swapchain image
     uint32_t imageIndex;
-
-    VkResult result = vkAcquireNextImageKHR(
-        device,
-        vulkanCore->getSwapchain(),
-        UINT64_MAX,
-        frame.imageAvailable,
-        VK_NULL_HANDLE,
-        &imageIndex
-    );
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    
+    if (!acquireSwapchainImage(device, swapchain, frame, imageIndex)) {
         return;
     }
 
-    if (
-        result != VK_SUCCESS &&
-        result != VK_SUBOPTIMAL_KHR
-    ) {
-        throw std::runtime_error(
-            "Failed to acquire swapchain image"
-        );
-    }
+    VkSemaphore renderFinished = vulkanCore->getRenderFinishedSemaphore(imageIndex);
 
     // 3. Reuse the frame
-    utils::check(vkResetFences(
-        device,
-        1,
-        &frame.computeFence
-    ));
-
-    utils::check(vkResetCommandBuffer(
-        frame.computeCommandBuffer,
-        0
-    ));
+    resetFences(device, frame);
+    resetCommandBuffers(frame);
 
     // 4. Record compute + copy commands
     recordCommandBuffers(
@@ -105,54 +57,35 @@ void Renderer::drawFrame() {
         imageIndex
     );
 
-    // 5. Submit
-    VkPipelineStageFlags waitStage =
-        VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-    VkSubmitInfo submitInfo{
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &frame.imageAvailable,
-        .pWaitDstStageMask = &waitStage,
-
-        .commandBufferCount = 1,
-        .pCommandBuffers = &frame.computeCommandBuffer,
-
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &frame.renderFinished
-    };
-
-    utils::check(vkQueueSubmit(
-        queue,
-        1,
-        &submitInfo,
+    // 5. Submit 
+    queue.submit(
+        frame.computeCommandBuffer,
+        frame.imageAvailable,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        renderFinished,
         frame.computeFence
-    ));
+    );
 
-    // 6. Present
-    VkSwapchainKHR swapchain =
-        vulkanCore->getSwapchain();
 
-    VkPresentInfoKHR presentInfo{
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+    // 6. Present 
+    VkResult presentResult = queue.present(
+        swapchain,
+        imageIndex,
+        renderFinished
+    );
 
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &frame.renderFinished,
-
-        .swapchainCount = 1,
-        .pSwapchains = &swapchain,
-        .pImageIndices = &imageIndex
-    };
-
-    utils::check(vkQueuePresentKHR(
-        queue,
-        &presentInfo
-    ));
+    if (
+        presentResult != VK_SUCCESS &&
+        presentResult != VK_SUBOPTIMAL_KHR &&
+        presentResult != VK_ERROR_OUT_OF_DATE_KHR
+    ) {
+        throw std::runtime_error(
+            "Failed to present swapchain image!"
+        );
+    }
 
     // 7. Advance frame
-    currentFrame =
-        (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void Renderer::createOutputImage() {
@@ -220,29 +153,20 @@ void Renderer::createOutputImageView() {
     ));
 }
 
-void Renderer::waitForFences(FrameData& frame) {
-    vkWaitForFences(
-        vulkanCore->getDevice(),
+void Renderer::waitForFences(VkDevice device, FrameData& frame) {
+    utils::check(vkWaitForFences(
+        device,
         1,
         &frame.computeFence,
         VK_TRUE,
         UINT64_MAX
-    );
-/*
-    vkWaitForFences(
-        vulkanCore->getDevice(),
-        1,
-        &frame.graphicsFence,
-        VK_TRUE,
-        UINT64_MAX
-    );
-*/
+    ));
 }
 
-bool Renderer::acquireSwapchainImage(FrameData& frame, uint32_t& imageIndex) {
+bool Renderer::acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, FrameData& frame, uint32_t& imageIndex) {
     VkResult result = vkAcquireNextImageKHR(
-        vulkanCore->getDevice(),
-        vulkanCore->getSwapchain(),
+        device,
+        swapchain,
         UINT64_MAX,
         frame.imageAvailable,
         VK_NULL_HANDLE,
@@ -260,27 +184,18 @@ bool Renderer::acquireSwapchainImage(FrameData& frame, uint32_t& imageIndex) {
     return true;
 }
 
-void Renderer::resetFences(FrameData& frame) {
-    vkResetFences(
-        vulkanCore->getDevice(),
+void Renderer::resetFences(VkDevice device, FrameData& frame) {
+    utils::check(vkResetFences(
+        device,
         1,
         &frame.computeFence
-    );
-/*
-    vkResetFences(
-        vulkanCore->getDevice(),
-        1,
-        &frame.graphicsFence
-    );
-*/
+    ));
 }
 
 void Renderer::resetCommandBuffers(FrameData& frame) {
-    vkResetCommandBuffer(frame.computeCommandBuffer, 0);
-    // vkResetCommandBuffer(frame.graphicsCommandBuffer, 0);
+    utils::check(vkResetCommandBuffer(frame.computeCommandBuffer, 0));
 }
 
-/*
 void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -293,7 +208,7 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
     uint32_t width = static_cast<uint32_t>(vulkanCore->getWindowSize().x);
     uint32_t height = static_cast<uint32_t>(vulkanCore->getWindowSize().y);
 
-    if (!outputImageInitialized) {
+    if (!outputImageInitialized) { // transition image if it is the first time it is used
         transitionImage(
             commandBuffer,
             outputImage,
@@ -330,8 +245,7 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
 		1
 	);
     
-    // after compute has finished writing
-	transitionImage( // prepare output image
+	transitionImage( // compute result becomes copy source
 		commandBuffer,
 		outputImage,
 		VK_IMAGE_LAYOUT_GENERAL,
@@ -364,31 +278,7 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
             .depth = 1
         }
 	};
-        
-    // testing clear color
-
-    VkClearColorValue clearColor{
-        .float32 = { 0.1f, 0.3f, 0.8f, 1.0f }
-    };
-
-    VkImageSubresourceRange range{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1
-    };
-
-    vkCmdClearColorImage(
-        commandBuffer,
-        swapchainImage,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        &clearColor,
-        1,
-        &range
-    );
-
-
+    
     vkCmdCopyImage(
         commandBuffer,
         outputImage,
@@ -416,83 +306,6 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
 
     utils::check(vkEndCommandBuffer(commandBuffer));
 }
-*/
-
-// testing clear color
-void Renderer::recordCommandBuffers(
-    VkCommandBuffer commandBuffer,
-    uint32_t imageIndex
-) {
-    VkCommandBufferBeginInfo beginInfo{
-        .sType =
-            VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
-    };
-
-    utils::check(
-        vkBeginCommandBuffer(
-            commandBuffer,
-            &beginInfo
-        )
-    );
-
-    VkImage swapchainImage =
-        vulkanCore->getSwapchainImage(imageIndex);
-
-    // Make acquired image writable by transfer commands.
-    transitionImage(
-        commandBuffer,
-        swapchainImage,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-    );
-
-    VkClearColorValue clearColor{
-        .float32 = {
-            0.1f,
-            0.3f,
-            0.8f,
-            1.0f
-        }
-    };
-
-    VkImageSubresourceRange range{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-        .baseMipLevel = 0,
-        .levelCount = 1,
-        .baseArrayLayer = 0,
-        .layerCount = 1
-    };
-
-    vkCmdClearColorImage(
-        commandBuffer,
-        swapchainImage,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        &clearColor,
-        1,
-        &range
-    );
-
-    // Make it ready for presentation.
-    transitionImage(
-        commandBuffer,
-        swapchainImage,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
-
-    utils::check(
-        vkEndCommandBuffer(commandBuffer)
-    );
-}
-
-/*
-void Renderer::submitCommandBuffers(){
-	queue = vulkanCore->getQueue();	
-	uint32_t imageIndex = queue->acquireNextImage();
-	queue->submitAsync(vulkanCore->getFrameData(imageIndex).computeCommandBuffer);
-	queue->present(imageIndex);
-}
-*/
 
 void Renderer::transitionImage(
 		VkCommandBuffer commandBuffer,
@@ -554,5 +367,9 @@ void Renderer::cleanUp() {
 }
 
 Renderer::~Renderer() {
+    if (vulkanCore != nullptr) {
+        vkDeviceWaitIdle(vulkanCore->getDevice());
+    };
+
     cleanUp();
 }

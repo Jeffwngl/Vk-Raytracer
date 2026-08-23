@@ -31,7 +31,14 @@ FetchContent_MakeAvailable(glm)
 
 add_executable(${CMAKE_PROJECT_NAME}
     src/main.cpp
-    # assets/shader.slang
+    src/Application.cpp
+    src/Core.cpp
+    src/Renderer.cpp
+    src/Queue.cpp
+    src/Swapchain.cpp
+    src/ComputePipeline.cpp
+    src/ComputeDescriptorSet.cpp
+    src/Vma.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME}
@@ -61,5 +68,6 @@ else()
         -Wall
         -Wextra
         -Wpedantic
+        -Wno-nullability-extension
     )
 endif()

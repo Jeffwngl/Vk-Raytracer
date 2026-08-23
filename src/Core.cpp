@@ -12,6 +12,8 @@
 
 #include "Utils.h"
 
+// #define NDEBUG
+
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
@@ -31,7 +33,17 @@ bool VulkanCore::initialize() {
     initializeDevice();
     createLogicalDevice();
     initializeVMA();
-    createSwapChain();
+
+    VkExtent2D windowExtent{
+        .width = static_cast<uint32_t>(windowSize.x),
+        .height = static_cast<uint32_t>(windowSize.y)
+    };
+
+    swapchain.initialize(
+        *this,
+        windowExtent
+    );
+
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
@@ -53,24 +65,20 @@ VkDevice VulkanCore::getDevice() const {
     return this->device;
 }
 
+VkPhysicalDevice VulkanCore::getPhysicalDevice() const {
+    return this->physicalDevice;
+}
+
 const Queue& VulkanCore::getQueue() const {
 	return queue;
 }
 
-VkSwapchainKHR VulkanCore::getSwapchain() const {
-    return this->swapchain;
+VkSurfaceKHR VulkanCore::getSurface() const {
+    return this->surface;
 }
 
-const VkImage& VulkanCore::getSwapchainImage(uint32_t imageIndex) const {
-	return this->swapChainImages[imageIndex];
-}
-
-const std::vector<VkImage>& VulkanCore::getSwapchainImages() const {
-    return this->swapChainImages;
-}
-
-const std::vector<VkImageView>& VulkanCore::getSwapchainImageViews() const {
-    return this->swapChainImageViews;
+const Swapchain& VulkanCore::getSwapchain() const {
+    return swapchain;
 }
 
 FrameData& VulkanCore::getFrameData(uint32_t index) {
@@ -112,7 +120,7 @@ void VulkanCore::initializeInstance() {
     VkApplicationInfo appInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "Vulkan Raytracer",
-        .apiVersion = VK_API_VERSION_1_3,
+        .apiVersion = VulkanVersion,
         .pNext = VK_NULL_HANDLE
     };
 
@@ -151,12 +159,10 @@ void VulkanCore::initializeInstance() {
     utils::check(vkCreateInstance(&instanceCI, nullptr, &instance));
 }
 
-
 void VulkanCore::createSurface() {
     utils::check(SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface));
     utils::check(SDL_GetWindowSize(window, &windowSize.x, &windowSize.y));
 }
-
 
 void VulkanCore::initializeDevice() {
     uint32_t deviceCnt{ 0 };
@@ -311,178 +317,6 @@ void VulkanCore::initializeVMA() {
     utils::check(vmaCreateAllocator(&allocatorInfo, &allocator));
 }
 
-void VulkanCore::createSwapChain() {
-    SwapchainSupportDetails supportDetails = querySwapChainSupport(physicalDevice, surface);
-
-    uint32_t swapFormat{ 0 }; // fall back to 0
-
-    for (size_t i = 0; i < supportDetails.formats.size(); ++i) {
-        if (
-            supportDetails.formats[i].format == VK_FORMAT_B8G8R8A8_SRGB &&
-            supportDetails.formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
-        ) {
-            swapFormat = i;
-            break;
-        }
-    }
-
-    swapChainFormat = supportDetails.formats[swapFormat].format;
-
-    VkPresentModeKHR swapPresentMode{};
-
-    for (size_t i = 0; i < supportDetails.presentModes.size(); ++i) {
-        if (supportDetails.presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-            swapPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-        }
-    }
-
-    if (swapPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) {
-        swapPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    } // default to FIFO if mailbox not available
-
-    VkSurfaceCapabilitiesKHR surfaceCaps{};
-    utils::check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        physicalDevice,
-        surface,
-        &surfaceCaps
-    ));
-
-    VkExtent2D swapchainExtent = chooseSwapExtent(surfaceCaps);
-
-    uint32_t imageCnt = surfaceCaps.minImageCount + 1;
-    
-    // make sure not over max num of images
-    if (surfaceCaps.maxImageCount > 0 && imageCnt > surfaceCaps.maxImageCount) {
-        imageCnt = surfaceCaps.maxImageCount;
-    }
-
-    VkSwapchainCreateInfoKHR swapchainCI{
-        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-        .surface = surface,
-        .minImageCount = imageCnt,
-        .imageFormat = supportDetails.formats[swapFormat].format,
-        .imageColorSpace = supportDetails.formats[swapFormat].colorSpace,
-        .imageExtent{
-            .width = swapchainExtent.width,
-            .height = swapchainExtent.height
-        },
-        .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        .preTransform = surfaceCaps.currentTransform,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR, // ignore alpha for now
-        .presentMode = swapPresentMode,
-        .clipped = VK_TRUE,
-        .oldSwapchain = VK_NULL_HANDLE
-    };
-
-    utils::check(vkCreateSwapchainKHR(
-        device,
-        &swapchainCI,
-        nullptr,
-        &swapchain
-    ));
-
-    utils::check(vkGetSwapchainImagesKHR(
-        device,
-        swapchain,
-        &imageCnt,
-        nullptr
-    ));
-
-    swapChainImages.resize(imageCnt);
-
-    utils::check(vkGetSwapchainImagesKHR(
-        device,
-        swapchain,
-        &imageCnt,
-        swapChainImages.data()
-    ));
-
-    swapChainImageViews.resize(imageCnt);
-
-    for (size_t i = 0; i < swapChainImages.size(); ++i) {
-        VkImageViewCreateInfo imageViewCI{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = swapChainImages[i],
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = supportDetails.formats[swapFormat].format,
-            .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .subresourceRange.levelCount = 1,
-            .subresourceRange.layerCount = 1
-        };
-
-        utils::check(vkCreateImageView(
-            device,
-            &imageViewCI,
-            nullptr,
-            &swapChainImageViews[i]
-        ));
-    }
-}
-
-/*
-void VulkanCore::createRenderPass() {
-    VkAttachmentDescription colorAttachment{
-        .flags = 0,
-        .format = swapChainFormat,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    };
-
-    VkAttachmentReference colorAttachmentRef{
-        .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-    };
-
-    VkSubpassDescription subpass{
-        .flags = 0,
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .inputAttachmentCount = 0,
-        .pInputAttachments = nullptr,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachmentRef,
-        .pResolveAttachments = nullptr,
-        .pDepthStencilAttachment = nullptr,
-        .preserveAttachmentCount = 0,
-        .pPreserveAttachments = nullptr,
-    };
-
-    VkSubpassDependency dependency{
-        .srcSubpass = VK_SUBPASS_EXTERNAL,
-        .dstSubpass = 0,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .dependencyFlags = 0,
-    };
-
-    VkRenderPassCreateInfo renderPassCI{
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .attachmentCount = 1,
-        .pAttachments = &colorAttachment,
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
-        .dependencyCount = 1,
-        .pDependencies = &dependency,
-    };
-
-    utils::check(vkCreateRenderPass(
-        device,
-        &renderPassCI,
-        nullptr,
-        &renderPass
-    ));
-}
-*/
-
 void VulkanCore::createCommandPool() {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -497,7 +331,6 @@ void VulkanCore::createCommandPool() {
         &commandPool
     ));
 }
-
 
 void VulkanCore::createCommandBuffers() {
     std::vector<VkCommandBuffer> buffers(MAX_FRAMES_IN_FLIGHT * 2);
@@ -539,7 +372,7 @@ void VulkanCore::createSyncObjects() {
 	}
 
     renderFinishedSemaphores.resize(
-        swapChainImages.size()
+        swapchain.getImages().size()
     );
 
     for (VkSemaphore& semaphore : renderFinishedSemaphores) {
@@ -584,87 +417,6 @@ bool VulkanCore::checkSuitableDevice(VkPhysicalDevice device) {
         deviceFeatures.samplerAnisotropy;
 
     return isGPU && supportsRequiredFeatures;
-}
-
-SwapchainSupportDetails VulkanCore::querySwapChainSupport(
-    VkPhysicalDevice physicalDevice,
-    VkSurfaceKHR surface
-) {
-    SwapchainSupportDetails details{};
-
-    utils::check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        physicalDevice,
-        surface,
-        &details.surfaceCapabilities
-    ));
-
-    uint32_t formatCnt{ 0 };
-
-    utils::check(vkGetPhysicalDeviceSurfaceFormatsKHR(
-        physicalDevice,
-        surface,
-        &formatCnt,
-        nullptr
-    ));
-
-    if (formatCnt > 0) {
-        details.formats.resize(formatCnt);
-
-        utils::check(vkGetPhysicalDeviceSurfaceFormatsKHR(
-            physicalDevice,
-            surface,
-            &formatCnt,
-            details.formats.data()
-        ));
-    }
-
-    uint32_t presentModeCnt{ 0 };
-
-    utils::check(vkGetPhysicalDeviceSurfacePresentModesKHR(
-        physicalDevice,
-        surface,
-        &presentModeCnt,
-        nullptr
-    ));
-
-    if (presentModeCnt > 0) {
-        details.presentModes.resize(presentModeCnt);
-
-        utils::check(vkGetPhysicalDeviceSurfacePresentModesKHR(
-            physicalDevice,
-            surface,
-            &presentModeCnt,
-            details.presentModes.data()
-        ));
-    }
-
-    return details;
-}
-
-
-VkExtent2D VulkanCore::chooseSwapExtent(
-    const VkSurfaceCapabilitiesKHR& surfaceCaps
-) {
-    if (surfaceCaps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-        return surfaceCaps.currentExtent;
-    }
-    else {
-        VkExtent2D swapExtent = {};
-
-        swapExtent.width = std::clamp(
-            static_cast<uint32_t>(windowSize.x),
-            surfaceCaps.minImageExtent.width,
-            surfaceCaps.maxImageExtent.width
-        );
-
-        swapExtent.height = std::clamp(
-            static_cast<uint32_t>(windowSize.y),
-            surfaceCaps.minImageExtent.height,
-            surfaceCaps.maxImageExtent.height
-        );
-
-        return swapExtent;
-    }
 }
 
 bool VulkanCore::checkValidationLayerSupport() {
@@ -801,13 +553,9 @@ void VulkanCore::cleanUp() {
         );
     }
 
+    swapchain.cleanUp();
+
     vkDestroyCommandPool(device, commandPool, nullptr);
-
-    for (VkImageView view : swapChainImageViews) {
-        vkDestroyImageView(device, view, nullptr);
-    }
-
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
     
     if (allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(allocator);

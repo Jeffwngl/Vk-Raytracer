@@ -13,7 +13,7 @@ bool Renderer::initialize(VulkanCore& vkCore) {
     createOutputImage();
     createOutputImageView();
     
-    std::string path = "assets/shaders/color.comp.spv";
+    std::string path = "assets/shaders/sphere.comp.spv";
     
     computeDescriptorSet.initialize(
             *vulkanCore, 
@@ -32,7 +32,7 @@ void Renderer::drawFrame() {
     FrameData& frame = vulkanCore->getFrameData(currentFrame);
 
     VkDevice device = vulkanCore->getDevice();
-    VkSwapchainKHR swapchain = vulkanCore->getSwapchain();    
+    VkSwapchainKHR swapchain = vulkanCore->getSwapchain().get();    
     const Queue& queue = vulkanCore->getQueue();
 
     // 1. Wait until this frame is free
@@ -203,7 +203,7 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
 
     utils::check(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-	VkImage swapchainImage = vulkanCore->getSwapchainImages()[imageIndex];
+	VkImage swapchainImage = vulkanCore->getSwapchain().getImages()[imageIndex];
 
     uint32_t width = static_cast<uint32_t>(vulkanCore->getWindowSize().x);
     uint32_t height = static_cast<uint32_t>(vulkanCore->getWindowSize().y);

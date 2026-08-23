@@ -10,12 +10,7 @@
 #include <vk_mem_alloc.h>
 
 #include "Queue.h"
-
-struct SwapchainSupportDetails {
-    VkSurfaceCapabilitiesKHR surfaceCapabilities{};
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
+#include "Swapchain.h"
 
 struct FrameData {
     VkSemaphore imageAvailable{ VK_NULL_HANDLE };
@@ -24,6 +19,10 @@ struct FrameData {
 };
 
 class VulkanCore {
+
+static constexpr uint32_t VulkanVersion{ VK_API_VERSION_1_3 };
+static constexpr uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
+
 public:
     VulkanCore() = default;
     ~VulkanCore();
@@ -33,21 +32,24 @@ public:
     bool initialize();
 
     VkDevice getDevice() const;
+    VkPhysicalDevice getPhysicalDevice() const;
+    VkSurfaceKHR getSurface() const;
+
     const Queue& getQueue() const;
-    // uint32_t getQueueFamily();
-    VkSwapchainKHR getSwapchain() const;
+
+    const Swapchain& getSwapchain() const;
+
     glm::vec2 getWindowSize() const;
     VmaAllocator getVmaAllocator() const;
-	const VkImage& getSwapchainImage(uint32_t imageIndex) const;
-    const std::vector<VkImage>& getSwapchainImages() const;
-    const std::vector<VkImageView>& getSwapchainImageViews() const;
+
     FrameData& getFrameData(uint32_t index);
+
     VkSemaphore getRenderFinishedSemaphore(
         uint32_t imageIndex
     ) const;
 
-	VkSemaphore createSemaphore();
-	VkFence createFence();
+    VkSemaphore createSemaphore();
+    VkFence createFence();
 
     void close();
 
@@ -58,8 +60,6 @@ private:
     void initializeDevice();
     void createLogicalDevice();
     void initializeVMA();
-    void createSwapChain();
-    void createRenderPass();
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects(); 
@@ -78,42 +78,33 @@ private:
 
     bool checkSuitableDevice(VkPhysicalDevice device);
 
-    SwapchainSupportDetails querySwapChainSupport(
-        VkPhysicalDevice physicalDevice,
-        VkSurfaceKHR surface
-    );
-
-    VkExtent2D chooseSwapExtent(
-        const VkSurfaceCapabilitiesKHR& surfaceCaps
-    );
-
     void cleanUp();
 
 private:
-    static constexpr uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
-
     VkInstance instance{ VK_NULL_HANDLE };
     VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
     VkDevice device{ VK_NULL_HANDLE };
-	Queue queue;
+
+    Queue queue;
     uint32_t queueFamily{ 0 };
+
     SDL_Window* window{ nullptr };
     glm::ivec2 windowSize{};
-    VkSurfaceKHR surface{ VK_NULL_HANDLE };
-    VmaAllocator allocator{ VK_NULL_HANDLE };
-    VkSwapchainKHR swapchain{ VK_NULL_HANDLE };
-    VkFormat swapChainFormat{ VK_FORMAT_UNDEFINED };
 
-    std::vector<VkImage> swapChainImages{};
-    std::vector<VkImageView> swapChainImageViews{};
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    VkRenderPass renderPass{ VK_NULL_HANDLE };
+    VkSurfaceKHR surface{ VK_NULL_HANDLE };
+
+    VmaAllocator allocator{ VK_NULL_HANDLE };
+
+    Swapchain swapchain;
+
     VkCommandPool commandPool{ VK_NULL_HANDLE };
     std::vector<FrameData> frames{};
-    
-    VkDebugUtilsMessengerEXT debugMessenger{VK_NULL_HANDLE};
-    std::vector<const char*> extensions;
-    const std::vector<const char*> validationLayers = {
+
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+
+    VkDebugUtilsMessengerEXT debugMessenger{ VK_NULL_HANDLE };
+
+    const std::vector<const char*> validationLayers{
         "VK_LAYER_KHRONOS_validation"
     };
 };

@@ -111,6 +111,10 @@ VkSwapchainKHR Swapchain::get() const {
     return this->swapchain;
 }
 
+VkFormat Swapchain::getFormat() const {
+    return surfaceFormat.format;
+}
+
 const std::vector<VkImage>& Swapchain::getImages() const {
     return this->swapchainImages;
 }

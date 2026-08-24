@@ -19,6 +19,7 @@ public:
     void cleanUp();
 
 private:
+    void checkBlitSupport();
     void waitForFences(VkDevice device, FrameData& frame);
     bool acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, FrameData& frame, uint32_t& imageIndex);
     void resetFences(VkDevice device, FrameData& frame);

@@ -8,6 +8,8 @@
 
 bool Renderer::initialize(VulkanCore& vkCore) {
     vulkanCore = &vkCore;
+
+    checkBlitSupport();
     
     // use separate image view from swapchain to avoid platform specifics
     createOutputImage();
@@ -79,14 +81,14 @@ void Renderer::drawFrame() {
         presentResult != VK_SUBOPTIMAL_KHR &&
         presentResult != VK_ERROR_OUT_OF_DATE_KHR
     ) {
-        throw std::runtime_error(
-            "Failed to present swapchain image!"
-        );
+        throw std::runtime_error("Failed to present swapchain image!");
     }
 
     // 7. Advance frame
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
+
+
 
 void Renderer::createOutputImage() {
     VkImageCreateInfo imageCI{
@@ -259,34 +261,53 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
 	);
 
-	VkImageCopy region{
+    VkImageBlit region{
         .srcSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
             .baseArrayLayer = 0,
             .layerCount = 1
         },
+
+        .srcOffsets = {
+            { 0, 0, 0 },
+            {
+                static_cast<int32_t>(width),
+                static_cast<int32_t>(height),
+                1
+            }
+        },
+
         .dstSubresource = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .mipLevel = 0,
             .baseArrayLayer = 0,
             .layerCount = 1
         },
-        .extent = {
-            .width = width,
-            .height = height,
-            .depth = 1
+
+        .dstOffsets = {
+            { 0, 0, 0 },
+            {
+                static_cast<int32_t>(width),
+                static_cast<int32_t>(height),
+                1
+            }
         }
-	};
-    
-    vkCmdCopyImage(
+    };
+
+    vkCmdBlitImage(
         commandBuffer,
+
         outputImage,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+
         swapchainImage,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+
         1,
-        &region
+        &region,
+
+        VK_FILTER_NEAREST
     );
 
     // prepare for vkQueuePresentKHR
@@ -341,6 +362,41 @@ void Renderer::transitionImage(
         commandBuffer,
         &dependencyInfo
     );
+}
+
+void Renderer::checkBlitSupport() {
+    VkPhysicalDevice physicalDevice = vulkanCore->getPhysicalDevice();
+
+    VkFormat srcFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    VkFormat dstFormat = vulkanCore->getSwapchain().getFormat();
+
+    VkFormatProperties srcProperties;
+    vkGetPhysicalDeviceFormatProperties(
+        physicalDevice,
+        srcFormat,
+        &srcProperties
+    );
+
+    VkFormatProperties dstProperties;
+    vkGetPhysicalDeviceFormatProperties(
+        physicalDevice,
+        dstFormat,
+        &dstProperties
+    );
+
+    if (!(srcProperties.optimalTilingFeatures &
+          VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+        throw std::runtime_error(
+            "Output image format does not support blit source"
+        );
+    }
+
+    if (!(dstProperties.optimalTilingFeatures &
+          VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+        throw std::runtime_error(
+            "Swapchain format does not support blit destination"
+        );
+    }
 }
 
 void Renderer::cleanUp() {

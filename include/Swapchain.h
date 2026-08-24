@@ -22,7 +22,8 @@ public:
         VkExtent2D extent
     );
 
-    VkSwapchainKHR get() const;    
+    VkSwapchainKHR get() const;
+    VkFormat getFormat() const;
     const std::vector<VkImageView>& getImageViews() const;
     const std::vector<VkImage>& getImages() const;
 

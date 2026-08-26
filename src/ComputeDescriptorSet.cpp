@@ -1,12 +1,16 @@
+#include <array>
+
 #include "ComputeDescriptorSet.h"
 #include "Utils.h"
 
-void ComputeDescriptorSet::initialize(VulkanCore& vkCore, VkImageView outputImageView) {
+namespace Vulkan {
+
+void ComputeDescriptorSet::initialize(Vulkan::VulkanCore& vkCore, VkImageView outputImageView, const Buffer& sceneObjectBuffer) {
     vulkanCore = &vkCore;
 
     createDescriptorSetLayout();
     createDescriptorPool();
-    createDescriptorSet(outputImageView);
+    createDescriptorSet(outputImageView, sceneObjectBuffer);
 }
 
 void ComputeDescriptorSet::createDescriptorSetLayout() {
@@ -17,10 +21,22 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
+    VkDescriptorSetLayoutBinding sceneBufferBinding{
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
+    };
+
+    std::array<VkDescriptorSetLayoutBinding, 2>bindings{
+        outputImageBinding,
+        sceneBufferBinding
+    };
+
     VkDescriptorSetLayoutCreateInfo layoutCI{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &outputImageBinding
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()
     };
 
     utils::check(vkCreateDescriptorSetLayout(
@@ -32,16 +48,22 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
 }
 
 void ComputeDescriptorSet::createDescriptorPool() {
-    VkDescriptorPoolSize poolSize{
-        .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        .descriptorCount = 1
+    std::array<VkDescriptorPoolSize, 2> poolSizes{
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 1
+        },
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 1
+        }
     };
 
     VkDescriptorPoolCreateInfo poolCI{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = 1,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data()
     };
 
     utils::check(vkCreateDescriptorPool(
@@ -52,7 +74,7 @@ void ComputeDescriptorSet::createDescriptorPool() {
     ));
 }
 
-void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView) {
+void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, const Buffer& sceneObjectBuffer) {
     VkDescriptorSetAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool = descriptorPool,
@@ -72,7 +94,13 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView) {
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    VkWriteDescriptorSet descriptorWrite{
+    VkDescriptorBufferInfo sceneBufferInfo{
+        .buffer = sceneObjectBuffer.get(),
+        .offset = 0,
+        .range = sceneObjectBuffer.getSize()
+    };
+
+    VkWriteDescriptorSet outputImageWrite{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,
         .dstBinding = 0,
@@ -82,10 +110,25 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView) {
         .pImageInfo = &imageInfo
     };
 
+    VkWriteDescriptorSet sceneObjectBufferWrite{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = 1,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pBufferInfo = &sceneBufferInfo
+    };
+
+    std::array<VkWriteDescriptorSet, 2>writes{
+        outputImageWrite,
+        sceneObjectBufferWrite
+    };
+
     vkUpdateDescriptorSets(
         vulkanCore->getDevice(),
-        1,
-        &descriptorWrite,
+        static_cast<uint32_t>(writes.size()),
+        writes.data(),
         0,
         nullptr
     );
@@ -121,4 +164,6 @@ ComputeDescriptorSet::~ComputeDescriptorSet() {
             nullptr
         );
     }
+}
+
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <stdint.h>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -11,6 +10,8 @@
 
 #include "Queue.h"
 #include "Swapchain.h"
+
+namespace Vulkan {
 
 struct FrameData {
     VkSemaphore imageAvailable{ VK_NULL_HANDLE };
@@ -60,6 +61,7 @@ private:
     void initializeDevice();
     void createLogicalDevice();
     void initializeVMA();
+    void createSwapchain();
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects(); 
@@ -85,7 +87,7 @@ private:
     VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
     VkDevice device{ VK_NULL_HANDLE };
 
-    Queue queue;
+    Queue queue; // TODO: change to unique ptr
     uint32_t queueFamily{ 0 };
 
     SDL_Window* window{ nullptr };
@@ -108,3 +110,5 @@ private:
         "VK_LAYER_KHRONOS_validation"
     };
 };
+
+}

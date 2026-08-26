@@ -20,6 +20,8 @@
     const bool enableValidationLayers = true;
 #endif
 
+namespace Vulkan {
+
 bool VulkanCore::initialize() {
     if (!std::filesystem::is_directory("assets")) {
         std::cerr << "Could not find assets folder from working director." << '\n';
@@ -33,17 +35,7 @@ bool VulkanCore::initialize() {
     initializeDevice();
     createLogicalDevice();
     initializeVMA();
-
-    VkExtent2D windowExtent{
-        .width = static_cast<uint32_t>(windowSize.x),
-        .height = static_cast<uint32_t>(windowSize.y)
-    };
-
-    swapchain.initialize(
-        *this,
-        windowExtent
-    );
-
+    createSwapchain();
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
@@ -221,10 +213,10 @@ void VulkanCore::createLogicalDevice() {
             );
 
         if (
-                (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && 
-                (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && 
-                supportsPresentation
-            ) {
+            (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && 
+            (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && 
+            supportsPresentation
+        ) {
             queueFamily = i;
             break;
         }
@@ -315,6 +307,18 @@ void VulkanCore::initializeVMA() {
     };
 
     utils::check(vmaCreateAllocator(&allocatorInfo, &allocator));
+}
+
+void VulkanCore::createSwapchain() {
+    VkExtent2D windowExtent{
+        .width = static_cast<uint32_t>(windowSize.x),
+        .height = static_cast<uint32_t>(windowSize.y)
+    };
+
+    swapchain.initialize(
+        *this,
+        windowExtent
+    );
 }
 
 void VulkanCore::createCommandPool() {
@@ -574,4 +578,6 @@ void VulkanCore::cleanUp() {
 
 VulkanCore::~VulkanCore() {
     cleanUp();
+}
+
 }

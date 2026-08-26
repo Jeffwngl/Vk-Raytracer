@@ -5,8 +5,17 @@
 #include <cstdint>
 
 bool Application::initialize() {
-    vulkanCore.initialize();
-    renderer.initialize(vulkanCore);
+    if (!vulkanCore.initialize()) {
+        return false;
+    };
+
+    // initialize scene
+    world.Spheres(); // initialize spheres scene
+
+    if (!renderer.initialize(vulkanCore, world.getScene())) {
+        return false;
+    }
+
     return true;
 }
 

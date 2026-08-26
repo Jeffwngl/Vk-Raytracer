@@ -1,8 +1,10 @@
 #pragma once
 
+#include <SDL3/SDL.h>
+
 #include "Core.h"
 #include "Renderer.h"
-#include <SDL3/SDL.h>
+#include "World.h"
 
 class Application {
 public:
@@ -18,8 +20,9 @@ private:
     void handleDeltaTime();
 
 private:
-    VulkanCore vulkanCore;
+    Vulkan::VulkanCore vulkanCore;
     Renderer renderer;
+    World world;
     Uint64 nowTime = SDL_GetPerformanceCounter();
     Uint64 lastTime = 0;
     double deltaTime = 0;

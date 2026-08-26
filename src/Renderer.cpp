@@ -6,36 +6,32 @@
 
 #include "Utils.h"
 
-bool Renderer::initialize(VulkanCore& vkCore) {
+bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     vulkanCore = &vkCore;
+    this->scene = &scene;
 
     checkBlitSupport();
     
     // use separate image view from swapchain to avoid platform specifics
     createOutputImage();
     createOutputImageView();
+
+    createSceneBuffer();
     
-    std::string path = "assets/shaders/sphere.comp.spv";
-    
-    computeDescriptorSet.initialize(
-            *vulkanCore, 
-            outputImageView
-    );
-    computePipeline.initialize(
-            *vulkanCore, 
-            path, 
-            computeDescriptorSet.getDescriptorSetLayout()
-    );
+    std::string path = "assets/shaders/scene.comp.spv";
+
+    createComputeDescriptorSet();
+    createComputePipeline(path);
 
     return true;
 }
 
 void Renderer::drawFrame() {
-    FrameData& frame = vulkanCore->getFrameData(currentFrame);
+    Vulkan::FrameData& frame = vulkanCore->getFrameData(currentFrame);
 
     VkDevice device = vulkanCore->getDevice();
     VkSwapchainKHR swapchain = vulkanCore->getSwapchain().get();    
-    const Queue& queue = vulkanCore->getQueue();
+    const Vulkan::Queue& queue = vulkanCore->getQueue();
 
     // 1. Wait until this frame is free
     waitForFences(device, frame);
@@ -68,7 +64,6 @@ void Renderer::drawFrame() {
         frame.computeFence
     );
 
-
     // 6. Present 
     VkResult presentResult = queue.present(
         swapchain,
@@ -87,8 +82,6 @@ void Renderer::drawFrame() {
     // 7. Advance frame
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
-
-
 
 void Renderer::createOutputImage() {
     VkImageCreateInfo imageCI{
@@ -155,7 +148,49 @@ void Renderer::createOutputImageView() {
     ));
 }
 
-void Renderer::waitForFences(VkDevice device, FrameData& frame) {
+void Renderer::createSceneBuffer() {
+    const std::vector<Sphere>& objects = scene->getObjects();
+
+    if (objects.empty()) {
+        throw std::runtime_error(
+            "Cannot create scene buffer: Scene contains no objects."
+        );
+    }
+
+    VkDeviceSize bufferSize = objects.size() * sizeof(Sphere);
+
+    sceneObjectBuffer.initialize(
+        vulkanCore->getVmaAllocator(),
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | 
+        VMA_ALLOCATION_CREATE_MAPPED_BIT
+    );
+
+    sceneObjectBuffer.upload(
+        objects.data(),
+        bufferSize
+    );
+}
+
+void Renderer::createComputeDescriptorSet() {
+    computeDescriptorSet.initialize(
+        *vulkanCore, 
+        outputImageView,
+        sceneObjectBuffer
+    );
+}
+
+void Renderer::createComputePipeline(std::string& path) {
+    computePipeline.initialize(
+        *vulkanCore, 
+        path, 
+        computeDescriptorSet.getDescriptorSetLayout()
+    );
+}
+
+void Renderer::waitForFences(VkDevice device, Vulkan::FrameData& frame) {
     utils::check(vkWaitForFences(
         device,
         1,
@@ -165,7 +200,7 @@ void Renderer::waitForFences(VkDevice device, FrameData& frame) {
     ));
 }
 
-bool Renderer::acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, FrameData& frame, uint32_t& imageIndex) {
+bool Renderer::acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, Vulkan::FrameData& frame, uint32_t& imageIndex) {
     VkResult result = vkAcquireNextImageKHR(
         device,
         swapchain,
@@ -186,7 +221,7 @@ bool Renderer::acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, 
     return true;
 }
 
-void Renderer::resetFences(VkDevice device, FrameData& frame) {
+void Renderer::resetFences(VkDevice device, Vulkan::FrameData& frame) {
     utils::check(vkResetFences(
         device,
         1,
@@ -194,7 +229,7 @@ void Renderer::resetFences(VkDevice device, FrameData& frame) {
     ));
 }
 
-void Renderer::resetCommandBuffers(FrameData& frame) {
+void Renderer::resetCommandBuffers(Vulkan::FrameData& frame) {
     utils::check(vkResetCommandBuffer(frame.computeCommandBuffer, 0));
 }
 
@@ -238,6 +273,20 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
         &descriptorSet,
         0,
         nullptr
+    );
+
+    // push constants to tell GLSL how many objects to iterate over for ray tracing
+    Vulkan::PushConstants pc{
+        .objectCnt = static_cast<uint32_t>(scene->getObjects().size())
+    };
+
+    vkCmdPushConstants(
+        commandBuffer,
+        computePipeline.getPipelineLayout(),
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        0,
+        sizeof(Vulkan::PushConstants),
+        &pc
     );
 
 	vkCmdDispatch(

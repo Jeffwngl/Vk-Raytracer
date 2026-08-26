@@ -1,6 +1,8 @@
 #include "ComputePipeline.h"
 #include "Utils.h"
 
+namespace Vulkan {
+
 void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescriptorSetLayout descriptorSetLayout) {
     vulkanCore = &vkCore;
 
@@ -21,10 +23,18 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
         &shaderModule
     ));
 
+    VkPushConstantRange pushConstantRange{
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        .offset = 0,
+        .size = sizeof(uint32_t)
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutCI{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSetLayout
+        .pSetLayouts = &descriptorSetLayout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstantRange
     };
 
     utils::check(vkCreatePipelineLayout(
@@ -59,11 +69,11 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
     vkDestroyShaderModule(vulkanCore->getDevice(), shaderModule, VK_NULL_HANDLE);
 }
 
-VkPipeline ComputePipeline::getPipeline() {
+VkPipeline ComputePipeline::getPipeline() const {
     return pipeline;
 }
 
-VkPipelineLayout ComputePipeline::getPipelineLayout() {
+VkPipelineLayout ComputePipeline::getPipelineLayout() const {
     return pipelineLayout;
 }
 
@@ -81,4 +91,6 @@ ComputePipeline::~ComputePipeline() {
     if (pipelineLayout != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     }
+}
+
 }

@@ -17,7 +17,7 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
     VkShaderModule shaderModule;
 
     utils::check(vkCreateShaderModule(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &shaderModuleCI,
         VK_NULL_HANDLE,
         &shaderModule
@@ -38,7 +38,7 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
     };
 
     utils::check(vkCreatePipelineLayout(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &pipelineLayoutCI,
         VK_NULL_HANDLE,
         &pipelineLayout
@@ -58,7 +58,7 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
     };
 
     utils::check(vkCreateComputePipelines(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         VK_NULL_HANDLE,
         1,
         &computePipelineCI,
@@ -66,7 +66,7 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
         &pipeline
     ));
 
-    vkDestroyShaderModule(vulkanCore->getDevice(), shaderModule, VK_NULL_HANDLE);
+    vkDestroyShaderModule(vulkanCore->getDevice().get(), shaderModule, VK_NULL_HANDLE);
 }
 
 VkPipeline ComputePipeline::getPipeline() const {
@@ -82,7 +82,7 @@ ComputePipeline::~ComputePipeline() {
         return;
     };
 
-    VkDevice device = vulkanCore->getDevice();
+    VkDevice device = vulkanCore->getDevice().get();
 
     if (pipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, pipeline, nullptr);

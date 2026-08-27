@@ -40,7 +40,7 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
     };
 
     utils::check(vkCreateDescriptorSetLayout(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &layoutCI,
         nullptr,
         &descriptorSetLayout
@@ -67,7 +67,7 @@ void ComputeDescriptorSet::createDescriptorPool() {
     };
 
     utils::check(vkCreateDescriptorPool(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &poolCI,
         nullptr,
         &descriptorPool
@@ -83,7 +83,7 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, cons
     };
 
     utils::check(vkAllocateDescriptorSets(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &allocInfo,
         &descriptorSet
     ));
@@ -126,7 +126,7 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, cons
     };
 
     vkUpdateDescriptorSets(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         static_cast<uint32_t>(writes.size()),
         writes.data(),
         0,
@@ -134,11 +134,11 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, cons
     );
 }
 
-VkDescriptorSet ComputeDescriptorSet::getDescriptorSet() {
+VkDescriptorSet ComputeDescriptorSet::getDescriptorSet() const {
     return descriptorSet;
 }
 
-VkDescriptorSetLayout ComputeDescriptorSet::getDescriptorSetLayout() {
+VkDescriptorSetLayout ComputeDescriptorSet::getDescriptorSetLayout() const {
     return descriptorSetLayout;
 }
 
@@ -147,7 +147,7 @@ ComputeDescriptorSet::~ComputeDescriptorSet() {
         return;
     }
 
-    VkDevice device = vulkanCore->getDevice();
+    VkDevice device = vulkanCore->getDevice().get();
 
     if (descriptorPool != VK_NULL_HANDLE) {
         vkDestroyDescriptorPool(

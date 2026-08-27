@@ -27,9 +27,9 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
 void Renderer::drawFrame() {
     Vulkan::FrameData& frame = vulkanCore->getFrameData(currentFrame);
 
-    VkDevice device = vulkanCore->getDevice();
+    VkDevice device = vulkanCore->getDevice().get();
     VkSwapchainKHR swapchain = vulkanCore->getSwapchain().get();    
-    const Vulkan::Queue& queue = vulkanCore->getQueue();
+    const Vulkan::Queue& queue = vulkanCore->getDevice().getQueue();
 
     // 1. Wait until this frame is free
     waitForFences(device, frame);
@@ -139,7 +139,7 @@ void Renderer::createOutputImageView() {
     };
 
     utils::check(vkCreateImageView(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &imageViewCI,
         nullptr,
         &outputImageView
@@ -414,7 +414,7 @@ void Renderer::transitionImage(
 void Renderer::cleanUp() {
     if (outputImageView != VK_NULL_HANDLE) {
         vkDestroyImageView(
-            vulkanCore->getDevice(),
+            vulkanCore->getDevice().get(),
             outputImageView,
             nullptr
         );
@@ -436,7 +436,7 @@ void Renderer::cleanUp() {
 
 Renderer::~Renderer() {
     if (vulkanCore != nullptr) {
-        vkDeviceWaitIdle(vulkanCore->getDevice());
+        vkDeviceWaitIdle(vulkanCore->getDevice().get());
     };
 
     cleanUp();

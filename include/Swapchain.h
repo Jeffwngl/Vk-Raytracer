@@ -3,13 +3,15 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-class VulkanCore;
-
 struct SwapchainSupportDetails {
     VkSurfaceCapabilitiesKHR surfaceCapabilities{};
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
 };
+
+namespace Vulkan {
+
+class VulkanCore;
 
 class Swapchain {
 static constexpr uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
@@ -47,6 +49,8 @@ private:
         const std::vector<VkPresentModeKHR>presentMode
     );
 
+    void checkBlitSupport(VkFormat srcFormat);
+
 private:
     VulkanCore* vulkanCore{ nullptr };
     VkExtent2D windowExtent;
@@ -59,3 +63,5 @@ private:
     std::vector<VkImage>swapchainImages{};
     std::vector<VkImageView>swapchainImageViews{};
 };
+
+}

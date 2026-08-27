@@ -21,7 +21,6 @@ public:
     void cleanUp();
 
 private:
-    void checkBlitSupport();
     void waitForFences(VkDevice device, Vulkan::FrameData& frame);
     bool acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, Vulkan::FrameData& frame, uint32_t& imageIndex);
     void resetFences(VkDevice device, Vulkan::FrameData& frame);

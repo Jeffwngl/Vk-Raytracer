@@ -2,6 +2,8 @@
 #include "Core.h"
 #include "Utils.h"
 
+namespace Vulkan {
+
 void Swapchain::initialize(
     VulkanCore& vulkanCore,
     VkExtent2D extent
@@ -11,6 +13,7 @@ void Swapchain::initialize(
 
     createSwapchain();
     createImageViews();
+    checkBlitSupport(VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 void Swapchain::createSwapchain() {
@@ -232,6 +235,41 @@ SwapchainSupportDetails Swapchain::querySwapchainSupport(
     return details;
 }
 
+void Swapchain::checkBlitSupport(VkFormat srcFormat) {
+    VkPhysicalDevice physicalDevice = vulkanCore->getPhysicalDevice();
+
+    // VkFormat srcFormat = VK_FORMAT_R8G8B8A8_UNORM;
+    VkFormat dstFormat = this->getFormat();
+
+    VkFormatProperties srcProperties;
+    vkGetPhysicalDeviceFormatProperties(
+        physicalDevice,
+        srcFormat,
+        &srcProperties
+    );
+
+    VkFormatProperties dstProperties;
+    vkGetPhysicalDeviceFormatProperties(
+        physicalDevice,
+        dstFormat,
+        &dstProperties
+    );
+
+    if (!(srcProperties.optimalTilingFeatures &
+          VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+        throw std::runtime_error(
+            "Output image format does not support blit source"
+        );
+    }
+
+    if (!(dstProperties.optimalTilingFeatures &
+          VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+        throw std::runtime_error(
+            "Swapchain format does not support blit destination"
+        );
+    }
+}
+
 void Swapchain::cleanUp() {
     if (!vulkanCore) {
         return;
@@ -258,4 +296,6 @@ void Swapchain::cleanUp() {
 
 Swapchain::~Swapchain() {
     cleanUp();
+}
+
 }

@@ -33,7 +33,6 @@ bool VulkanCore::initialize() {
     setupDebugMessenger();
     createSurface();
     initializeDevice();
-    createLogicalDevice();
     initializeVMA();
     createSwapchain();
     createCommandPool();
@@ -53,20 +52,12 @@ VmaAllocator VulkanCore::getVmaAllocator() const {
     return allocator;
 }
 
-VkDevice VulkanCore::getDevice() const {
-    return this->device;
-}
-
-VkPhysicalDevice VulkanCore::getPhysicalDevice() const {
-    return this->physicalDevice;
-}
-
-const Queue& VulkanCore::getQueue() const {
-	return queue;
+Device VulkanCore::getDevice() const {
+    return device;
 }
 
 VkSurfaceKHR VulkanCore::getSurface() const {
-    return this->surface;
+    return surface;
 }
 
 const Swapchain& VulkanCore::getSwapchain() const {
@@ -74,11 +65,11 @@ const Swapchain& VulkanCore::getSwapchain() const {
 }
 
 FrameData& VulkanCore::getFrameData(uint32_t index) {
-    return this->frames[index];
+    return frames[index];
 }
 
 glm::vec2 VulkanCore::getWindowSize() const {
-    return this->windowSize;
+    return windowSize;
 }
 
 VkSemaphore VulkanCore::getRenderFinishedSemaphore(
@@ -157,151 +148,16 @@ void VulkanCore::createSurface() {
 }
 
 void VulkanCore::initializeDevice() {
-    uint32_t deviceCnt{ 0 };
-    utils::check(vkEnumeratePhysicalDevices(instance, &deviceCnt, nullptr));
-
-    if (deviceCnt == 0) {
-        throw std::runtime_error("Failed to find GPUs with Vulkan support.");
-    }
-
-    std::vector<VkPhysicalDevice> devices(deviceCnt);
-    utils::check(vkEnumeratePhysicalDevices(instance, &deviceCnt, devices.data()));
-
-    VkPhysicalDeviceProperties2 deviceProperties{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-        .pNext = VK_NULL_HANDLE
-    };
-
-    for (VkPhysicalDevice device : devices) {
-        if (!checkSuitableDevice(device)) {
-            continue;
-        }
-
-        physicalDevice = device;
-
-        VkPhysicalDeviceProperties properties;
-        vkGetPhysicalDeviceProperties(
-            physicalDevice,
-            &properties
-        );
-
-        std::cout << "Selected Device: " << properties.deviceName << '\n';
-
-        return;
-    }
-
-    throw std::runtime_error("Failed to find a suitable GPU.");
-}
-
-void VulkanCore::createLogicalDevice() {
-    uint32_t queueFamilyCnt{ 0 };
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCnt, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCnt);
-    vkGetPhysicalDeviceQueueFamilyProperties(
-        physicalDevice,
-        &queueFamilyCnt,
-        queueFamilies.data()
-    );
-
-    for (size_t i = 0; i < queueFamilyCnt; ++i) {
-        const bool supportsPresentation =
-            SDL_Vulkan_GetPresentationSupport(
-                instance,
-                physicalDevice,
-                i
-            );
-
-        if (
-            (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) && 
-            (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) && 
-            supportsPresentation
-        ) {
-            queueFamily = i;
-            break;
-        }
-    }
-
-    utils::check(SDL_Vulkan_GetPresentationSupport(
+    device.initialize(
         instance,
-        physicalDevice,
-        queueFamily
-    ));
-
-    const float queuePriority{ 1.0f };
-
-    VkDeviceQueueCreateInfo queueCI{
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = queueFamily,
-        .queueCount = 1,
-        .pQueuePriorities = &queuePriority
-    };
-
-    VkPhysicalDeviceVulkan13Features supportedVk13{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
-    };
-
-    VkPhysicalDeviceFeatures2 deviceFeatures{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &supportedVk13
-    };
-
-    vkGetPhysicalDeviceFeatures2(
-        physicalDevice,
-        &deviceFeatures
-    );
-
-    if (!supportedVk13.dynamicRendering || !supportedVk13.synchronization2) {
-        throw std::runtime_error("Required Vulkan 1.3 features are unsupported");
-    }
-
-    VkPhysicalDeviceVulkan12Features enabledVk12Features{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-        .pNext = nullptr,
-        .bufferDeviceAddress = VK_TRUE,
-        .descriptorIndexing = VK_TRUE
-    };
-
-    VkPhysicalDeviceVulkan13Features enabledVk13Features{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
-        .pNext = nullptr,
-        .dynamicRendering = VK_TRUE,
-        .synchronization2 = VK_TRUE
-    };
-
-    enabledVk12Features.pNext = &enabledVk13Features;
-
-    const std::vector<const char*> requiredDeviceExtensions{
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-
-    VkDeviceCreateInfo deviceCI{
-        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &enabledVk12Features,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &queueCI,
-        .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
-        .ppEnabledExtensionNames = requiredDeviceExtensions.data()
-    };
-
-    utils::check(vkCreateDevice(
-        physicalDevice,
-        &deviceCI,
-        nullptr,
-        &device
-    ));
-
-    queue.initialize(
-        device,
-        queueFamily,
-        0
+        surface
     );
 }
 
 void VulkanCore::initializeVMA() {
     VmaAllocatorCreateInfo allocatorInfo = {
-        .physicalDevice = physicalDevice,
-        .device = device,
+        .physicalDevice = device.getPhysicalDevice(),
+        .device = device.get(),
         .instance = instance,
         .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT
     };
@@ -325,11 +181,11 @@ void VulkanCore::createCommandPool() {
     VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-        .queueFamilyIndex = queueFamily
+        .queueFamilyIndex = device.getQueueFamily()
     };
 
     utils::check(vkCreateCommandPool(
-        device,
+        device.get(),
         &poolInfo,
         nullptr,
         &commandPool
@@ -348,7 +204,7 @@ void VulkanCore::createCommandBuffers() {
     };
 
     utils::check(vkAllocateCommandBuffers(
-        device,
+        device.get(),
         &allocCI,
         buffers.data()
     ));
@@ -391,7 +247,13 @@ VkSemaphore VulkanCore::createSemaphore() {
 	};
 	
 	VkSemaphore semaphore;
-	utils::check(vkCreateSemaphore(device, &semaphoreCI, nullptr, &semaphore));
+	utils::check(vkCreateSemaphore(
+        device.get(), 
+        &semaphoreCI, 
+        nullptr, 
+        &semaphore
+    ));
+
 	return semaphore;
 }
 
@@ -402,25 +264,14 @@ VkFence VulkanCore::createFence() {
 	};
 
 	VkFence fence;
-	utils::check(vkCreateFence(device, &fenceCI, nullptr, &fence));
+	utils::check(vkCreateFence(
+        device.get(), 
+        &fenceCI, 
+        nullptr, 
+        &fence
+    ));
+
 	return fence;
-}
-
-bool VulkanCore::checkSuitableDevice(VkPhysicalDevice device) {
-    VkPhysicalDeviceProperties deviceProperties;
-    VkPhysicalDeviceFeatures deviceFeatures;
-
-    vkGetPhysicalDeviceProperties(device, &deviceProperties);
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-    bool isGPU =
-        deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
-        deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
-
-    bool supportsRequiredFeatures =
-        deviceFeatures.samplerAnisotropy;
-
-    return isGPU && supportsRequiredFeatures;
 }
 
 bool VulkanCore::checkValidationLayerSupport() {
@@ -542,16 +393,18 @@ void VulkanCore::destroyDebugMessenger() {
 }
 
 void VulkanCore::cleanUp() {
-    vkDeviceWaitIdle(device);
+    VkDevice vkDevice = device.get();
+
+    vkDeviceWaitIdle(vkDevice);
 
     for (FrameData& frame : frames) {
-        vkDestroySemaphore(device, frame.imageAvailable, nullptr);
-        vkDestroyFence(device, frame.computeFence, nullptr);
+        vkDestroySemaphore(vkDevice, frame.imageAvailable, nullptr);
+        vkDestroyFence(vkDevice, frame.computeFence, nullptr);
     }
 
     for (VkSemaphore semaphore : renderFinishedSemaphores) {
         vkDestroySemaphore(
-            device,
+            vkDevice,
             semaphore,
             nullptr
         );
@@ -559,14 +412,14 @@ void VulkanCore::cleanUp() {
 
     swapchain.cleanUp();
 
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    vkDestroyCommandPool(vkDevice, commandPool, nullptr);
     
     if (allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(allocator);
         allocator = VK_NULL_HANDLE;
     }
 
-    vkDestroyDevice(device, nullptr);
+    vkDestroyDevice(vkDevice, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
     destroyDebugMessenger();
     vkDestroyInstance(instance, nullptr);

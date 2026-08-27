@@ -8,8 +8,8 @@
 #include <glm/glm.hpp>
 #include <vk_mem_alloc.h>
 
-#include "Queue.h"
 #include "Swapchain.h"
+#include "Device.h"
 
 namespace Vulkan {
 
@@ -32,22 +32,16 @@ public:
 
     bool initialize();
 
-    VkDevice getDevice() const;
-    VkPhysicalDevice getPhysicalDevice() const;
-    VkSurfaceKHR getSurface() const;
+    Device getDevice() const;
 
-    const Queue& getQueue() const;
+    VkSurfaceKHR getSurface() const;
 
     const Swapchain& getSwapchain() const;
 
     glm::vec2 getWindowSize() const;
     VmaAllocator getVmaAllocator() const;
-
     FrameData& getFrameData(uint32_t index);
-
-    VkSemaphore getRenderFinishedSemaphore(
-        uint32_t imageIndex
-    ) const;
+    VkSemaphore getRenderFinishedSemaphore(uint32_t imageIndex) const;
 
     VkSemaphore createSemaphore();
     VkFence createFence();
@@ -59,7 +53,6 @@ private:
     void initializeInstance();
     void createSurface();
     void initializeDevice();
-    void createLogicalDevice();
     void initializeVMA();
     void createSwapchain();
     void createCommandPool();
@@ -78,17 +71,11 @@ private:
         void* userData
     );
 
-    bool checkSuitableDevice(VkPhysicalDevice device);
-
     void cleanUp();
 
 private:
     VkInstance instance{ VK_NULL_HANDLE };
-    VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };
-    VkDevice device{ VK_NULL_HANDLE };
-
-    Queue queue; // TODO: change to unique ptr
-    uint32_t queueFamily{ 0 };
+    Device device{};
 
     SDL_Window* window{ nullptr };
     glm::ivec2 windowSize{};

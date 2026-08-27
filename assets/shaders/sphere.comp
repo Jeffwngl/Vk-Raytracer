@@ -1,0 +1,259 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, rgba8)
+uniform image2D outputImage;
+
+struct Sphere {
+    vec3 center;
+    float radius;
+    vec3 color;
+};
+
+layout(
+    std430,
+    set = 0,
+    binding = 1
+) readonly buffer SphereBuffer {
+    Sphere spheres[];
+};
+
+
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+
+struct Camera {
+    vec3 position;
+    vec3 forwards;
+};
+
+
+struct HitRecord {
+    vec3 position;
+    vec3 normal;
+
+    float t;
+    bool frontFace;
+
+    vec3 color;
+};
+
+
+vec3 skyColor(vec3 direction) {
+    // Convert y from [-1, 1] to [0, 1]
+    float t = 0.5 * (direction.y + 1.0);
+
+    return mix(
+        vec3(1.0, 1.0, 1.0),
+        vec3(0.5, 0.7, 1.0),
+        t
+    );
+}
+
+
+vec3 rayAt(Ray ray, float t) {
+    return ray.origin + t * ray.direction;
+}
+
+
+// bool hitSphere(
+//     Ray ray,
+//     Sphere sphere,
+//     out float hitDistance
+// ) {
+//     vec3 oc = sphere.center - ray.origin;
+
+//     float a = dot(ray.direction, ray.direction);
+//     // float b = -2.0 * dot(ray.direction, oc);
+//     float h = dot(ray.direction, oc);
+//     float c = dot(oc, oc) - sphere.radius * sphere.radius;
+
+//     // float discriminant = b * b - 4.0 * a * c;
+//     float discriminant = h * h - a * c;
+
+//     if (discriminant < 0.0) {
+//         return false;
+//     }
+
+//     float sqrtDiscriminant = sqrt(discriminant);
+
+//     // float t0 = (-b - sqrtDiscriminant) / (2.0 * a);
+//     // float t1 = (-b + sqrtDiscriminant) / (2.0 * a);
+//     float t0 = (h - sqrtDiscriminant) / a;
+//     float t1 = (h + sqrtDiscriminant) / a;
+
+//     hitDistance = t0;
+
+//     if (hitDistance < 0.0) {
+//         hitDistance = t1;
+//     }
+
+//     return hitDistance >= 0.0;
+// }
+
+
+bool hitSphere(
+    Ray ray,
+    Sphere sphere,
+    float tMin,
+    float tMax,
+    out HitRecord rec
+) {
+    vec3 oc = sphere.center - ray.origin;
+
+    float a = dot(
+        ray.direction,
+        ray.direction
+    );
+
+    float h = dot(
+        ray.direction,
+        oc
+    );
+
+    float c =
+        dot(oc, oc)
+        - sphere.radius * sphere.radius;
+
+    float discriminant =
+        h * h - a * c;
+
+    if (discriminant < 0.0)
+        return false;
+
+    float sqrtD = sqrt(discriminant);
+
+    float root =
+        (h - sqrtD) / a;
+
+    if (root <= tMin || root >= tMax) {
+        root = (h + sqrtD) / a;
+
+        if (root <= tMin || root >= tMax)
+            return false;
+    }
+
+    rec.t = root;
+    rec.position = rayAt(ray, root);
+
+    vec3 outwardNormal =
+        (rec.position - sphere.center)
+        / sphere.radius;
+
+    setFaceNormal(
+        ray,
+        outwardNormal,
+        rec
+    );
+
+    rec.color = sphere.color;
+
+    return true;
+}
+
+
+bool hitScene(
+    Ray ray,
+    out HitRecord closestHit
+) {
+    bool hitAnything = false;
+
+    float closestT = 1.0 / 0.0;
+
+    HitRecord temp;
+
+    for (uint i = 0; i < spheres.length(); ++i) {
+        if (
+            hitSphere(
+                ray,
+                spheres[i],
+                0.001,
+                closestT,
+                temp
+            )
+        ) {
+            hitAnything = true;
+            closestT = temp.t;
+            closestHit = temp;
+        }
+    }
+
+    return hitAnything;
+}
+
+
+void setFaceNormal(
+    Ray ray,
+    vec3 outwardNormal,
+    inout HitRecord rec
+) {
+    rec.frontFace =
+        dot(ray.direction, outwardNormal) < 0.0;
+
+    rec.normal =
+        rec.frontFace
+        ? outwardNormal
+        : -outwardNormal;
+}
+
+
+vec3 rayColor(Ray ray, Sphere sphere) {
+    float hitDistance;
+
+    if (hitSphere(ray, sphere, hitDistance)) {
+        vec3 hitPosition = ray.origin + hitDistance * ray.direction;
+        vec3 normal = normalize(hitPosition - sphere.center);
+
+        return 0.5 * (normal + 1.0);
+    }
+
+    return skyColor(ray.direction);
+}
+
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(outputImage);
+
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+
+    // pixel coordinate -> [-1, 1]
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+    uv = uv * 2.0 - 1.0;
+
+    // correct aspect ratio
+    float aspect = float(size.x) / float(size.y);
+    uv.x *= aspect;
+
+    Camera camera;
+    camera.position = vec3(0.0, 0.0, 0.0);
+    camera.forwards = vec3(0.0, 0.0, -1.0);
+
+    Sphere sphere;
+    sphere.center = vec3(0.0, 0.0, -3.0);
+    sphere.radius = 1.0;
+    sphere.color = vec3(1.0, 0.0, 0.0);
+
+    Ray ray;
+    ray.origin = camera.position;
+    ray.direction = normalize(vec3(
+        uv.x,
+        -uv.y,
+        -1.0
+    ));
+
+    vec3 color = rayColor(ray, sphere);
+
+    // imageStore(outputImage, pixel, vec4(0.0, 0.0, 1.0, 1.0));
+    imageStore(
+        outputImage,
+        pixel,
+        vec4(color, 1.0)
+    );
+}

@@ -1,5 +1,10 @@
 #version 450
 
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_control_flow_attributes : require
+
+#include "common/random.glsl"
+
 layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0, rgba8) uniform image2D outputImage;
@@ -202,22 +207,29 @@ void main() {
         return;
     }
 
-    vec3 pixelPosition =
-        pc.pixelStart.xyz
-        + float(pixel.x) * pc.pixelDU.xyz
-        + float(pixel.y) * pc.pixelDV.xyz;
+    // Random jittered sampling
+    const uint SAMPLES_PER_PIXEL = 8;
+    uint pixelIdx = uint(pixel.y * size.x + pixel.x);
+    uint rngState = tea(pixelIdx, 0u);
 
-    Ray ray;
+    // vec3 color = rayColor(ray);
+    vec3 color = vec3(0.0);
 
-    ray.origin =
-        pc.cameraPosition.xyz;
+    for (uint i = 0; i < SAMPLES_PER_PIXEL; ++i) {
+        vec2 jitter = vec2(rnd(rngState), rnd(rngState)) - 0.5;
+        vec3 pixelPosition = 
+            pc.pixelStart.xyz 
+            + (float(pixel.x) + jitter.x) * pc.pixelDU.xyz 
+            + (float(pixel.y) + jitter.y) * pc.pixelDV.xyz;
 
-    ray.direction =
-        normalize(
-            pixelPosition - ray.origin
-        );
+        Ray ray;
+        ray.origin = pc.cameraPosition.xyz;
+        ray.direction = normalize(pixelPosition - ray.origin);
 
-    vec3 color = rayColor(ray);
+        color += rayColor(ray);
+    }
+
+    color /= float(SAMPLES_PER_PIXEL);
 
     imageStore(outputImage, pixel, vec4(color, 1.0));
 }

@@ -5,9 +5,14 @@
 #include <string>
 #include <vulkan/vulkan_core.h>
 
+#include "Camera.h"
+
 namespace Vulkan {
 
-struct PushConstants {
+// keep 16 byte intervals (80 bytes total)
+struct alignas(16) PushConstants {
+    GPUData camera;
+
     uint32_t objectCnt;
 };
 

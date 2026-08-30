@@ -6,7 +6,7 @@ namespace Vulkan {
 void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescriptorSetLayout descriptorSetLayout) {
     vulkanCore = &vkCore;
 
-    auto computeShader = utils::readFile(path); // readfile
+    auto computeShader = utils::readFile(path);
 
     VkShaderModuleCreateInfo shaderModuleCI{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -23,10 +23,13 @@ void ComputePipeline::initialize(VulkanCore& vkCore, std::string& path, VkDescri
         &shaderModule
     ));
 
+    // vulkan guarantees at least 128 bytes push constants but some GPUs support more
+    static_assert(sizeof(PushConstants) <= 128);
+
     VkPushConstantRange pushConstantRange{
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
         .offset = 0,
-        .size = sizeof(uint32_t)
+        .size = sizeof(PushConstants)
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutCI{

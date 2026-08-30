@@ -5,6 +5,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "Utils.h"
+#include "Camera.h"
 
 bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     vulkanCore = &vkCore;
@@ -146,6 +147,8 @@ void Renderer::createOutputImageView() {
     ));
 }
 
+
+// TODO: change this to a general function creating sphere, vertex ... buffers
 void Renderer::createSceneBuffer() {
     const std::vector<Sphere>& objects = scene->getObjects();
 
@@ -273,8 +276,8 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
         nullptr
     );
 
-    // push constants to tell GLSL how many objects to iterate over for ray tracing
     Vulkan::PushConstants pc{
+        .camera = scene->getCamera().getGPUData(width, height),
         .objectCnt = static_cast<uint32_t>(scene->getObjects().size())
     };
 

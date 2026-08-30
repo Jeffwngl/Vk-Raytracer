@@ -5,6 +5,8 @@
 #include <vector>
 #include <cstdint>
 
+#include "Camera.h"
+
 // const double pi = 3.1415926535897932385;
 
 struct Vertex {
@@ -34,11 +36,6 @@ struct Object {
 };
 
 
-struct Camera {
-    glm::vec3 position{ 0.0f };
-};
-
-
 struct Sphere {
     glm::vec4 centerRadius; // (x, y, z, r) 16 bytes
     glm::vec4 color; // (r, g, b, a) 16 bytes
@@ -60,8 +57,20 @@ public:
         dirty = true;
     }
 
+    void addMesh(const Mesh& mesh);
+
+    void loadObj(const std::string& path);
+
     const std::vector<Sphere>& getObjects() const {
-        return spheres; // TODO: change to a general type later
+        return spheres; // TODO: change to a general type later, use below functions
+    }
+    const std::vector<Vertex>& getVertices() const;
+    const std::vector<uint32_t>& getIndices() const;
+    const std::vector<Mesh>& getMeshes() const;
+    // const std::vector<Object>& getObjects() const;
+
+    const Camera getCamera() const {
+        return camera;
     }
 
     bool isDirty() const {
@@ -74,6 +83,12 @@ public:
 
 private:
     std::vector<Sphere> spheres;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    std::vector<Mesh> mehes;
+    std::vector<Object> objects;
+
+    Camera camera;
 
     bool dirty{true};
 };

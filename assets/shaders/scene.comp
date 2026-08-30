@@ -1,0 +1,223 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, rgba8) uniform image2D outputImage;
+
+struct Sphere {
+    vec4 centerRadius; // xyz = center, w = radius
+    vec4 color;        // rgba
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer SphereBuffer {
+    Sphere spheres[];
+};
+
+layout(push_constant) uniform PushConstants {
+    vec4 cameraPosition;
+    vec4 pixelStart;
+    vec4 pixelDU;
+    vec4 pixelDV;
+
+    uint objectCnt;
+} pc;
+
+struct Ray {
+    vec3 origin;
+    vec3 direction;
+};
+
+struct HitRecord {
+    vec3 position;
+    vec3 normal;
+    float t;
+    bool frontFace;
+    vec3 color;
+};
+
+vec3 sphereCenter(Sphere sphere) {
+    return sphere.centerRadius.xyz;
+}
+
+float sphereRadius(Sphere sphere) {
+    return sphere.centerRadius.w;
+}
+
+vec3 skyColor(vec3 direction) {
+    float t = 0.5 * (direction.y + 1.0);
+    return mix(
+        vec3(1.0, 1.0, 1.0),
+        vec3(0.5, 0.7, 1.0),
+        t
+    );
+}
+
+vec3 rayAt(Ray ray, float t) {
+    return ray.origin + t * ray.direction;
+}
+
+void setFaceNormal(
+    Ray ray,
+    vec3 outwardNormal,
+    inout HitRecord rec
+) {
+    rec.frontFace = dot(ray.direction, outwardNormal) < 0.0;
+    rec.normal = rec.frontFace ? outwardNormal : -outwardNormal;
+}
+
+bool hitSphere(
+    Ray ray,
+    Sphere sphere,
+    float tMin,
+    float tMax,
+    out HitRecord rec
+) {
+    vec3 center = sphereCenter(sphere);
+    float radius = sphereRadius(sphere);
+
+    vec3 oc = center - ray.origin;
+
+    float a = dot(ray.direction, ray.direction);
+    float h = dot(ray.direction, oc);
+    float c = dot(oc, oc) - radius * radius;
+
+    float discriminant = h * h - a * c;
+
+    if (discriminant < 0.0) {
+        return false;
+    }
+
+    float sqrtD = sqrt(discriminant);
+
+    float root = (h - sqrtD) / a;
+    if (root <= tMin || root >= tMax) {
+        root = (h + sqrtD) / a;
+        if (root <= tMin || root >= tMax) {
+            return false;
+        }
+    }
+
+    rec.t = root;
+    rec.position = rayAt(ray, root);
+
+    vec3 outwardNormal = (rec.position - center) / radius;
+    setFaceNormal(ray, outwardNormal, rec);
+
+    rec.color = sphere.color.rgb;
+
+    return true;
+}
+
+bool hitGround(
+    Ray ray,
+    float tMin,
+    float tMax,
+    out HitRecord rec
+) {
+    const float groundY = -1.0;
+
+    // ray is almost parallel to the ground
+    if (abs(ray.direction.y) < 0.0001) {
+        return false;
+    }
+
+    float t =
+        (groundY - ray.origin.y) /
+        ray.direction.y;
+
+    // case 1: intersection lies behind the camera/ray origin
+    // case 2: intersection is behind another object
+    if (t <= tMin || t >= tMax) {
+        return false;
+    }
+
+    rec.t = t;
+    rec.position = rayAt(ray, t);
+
+    vec3 outwardNormal = vec3(0.0, 1.0, 0.0);
+
+    setFaceNormal(
+        ray,
+        outwardNormal,
+        rec
+    );
+
+    rec.color = vec3(0.8);
+
+    return true;
+}
+
+bool hitScene(
+    Ray ray,
+    out HitRecord closestHit
+) {
+    bool hitAnything = false;
+    float closestT = 1.0 / 0.0; // set closest t to infinity
+
+    for (uint i = 0; i < pc.objectCnt; ++i) {
+        HitRecord temp;
+
+        if (hitSphere(ray, spheres[i], 0.001, closestT, temp)) {
+            hitAnything = true;
+            closestT = temp.t;
+            closestHit = temp;
+        }
+    }
+
+    HitRecord groundHit;
+
+    if (
+        hitGround(
+            ray,
+            0.001, // tMin
+            closestT, // tMax
+            groundHit
+        )
+    ) {
+        hitAnything = true;
+        closestT = groundHit.t;
+        closestHit = groundHit;
+    }
+
+    return hitAnything;
+}
+
+vec3 rayColor(Ray ray) {
+    HitRecord rec;
+
+    if (hitScene(ray, rec)) {
+        // return rec.color;
+        vec3 normalColor = 0.5 * (rec.normal + vec3(1.0));
+        return normalColor;
+    }
+
+    return skyColor(ray.direction);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(outputImage);
+
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+
+    vec3 pixelPosition =
+        pc.pixelStart.xyz
+        + float(pixel.x) * pc.pixelDU.xyz
+        + float(pixel.y) * pc.pixelDV.xyz;
+
+    Ray ray;
+
+    ray.origin =
+        pc.cameraPosition.xyz;
+
+    ray.direction =
+        normalize(
+            pixelPosition - ray.origin
+        );
+
+    vec3 color = rayColor(ray);
+
+    imageStore(outputImage, pixel, vec4(color, 1.0));
+}

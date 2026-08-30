@@ -7,7 +7,7 @@
 Camera::Camera(
     const glm::vec3& pos,
     const glm::vec3& target,
-    float fov = 45.0f
+    float fov
 ) :
     pos{ pos },
     target{ target },

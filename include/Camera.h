@@ -1,3 +1,4 @@
+#pragma once
 
 #include <glm/glm.hpp>
 
@@ -26,7 +27,7 @@ public:
     const glm::vec3 getTarget() const;
     float getFov() const;
 
-    GPUData Camera::getGPUData(
+    GPUData getGPUData(
         uint32_t width,
         uint32_t height
     ) const;

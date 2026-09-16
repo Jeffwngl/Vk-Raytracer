@@ -32,9 +32,9 @@ This is a personal project following the CPU based ray tracing listed out in Pet
 - Thanks to Sebastian Lagues series on Ray Tracing and Peter Shirley's Ray tracing trilogy. 
 
 ## Vulkan Specific
-(Computer Graphics TU Wien Series)[https://www.youtube.com/watch?v=5VBVWCg7riQ]
-(constref Vulkan in 2 Hours)[https://www.youtube.com/watch?v=DC9FBRQKNck]
-(Introduction to Vulkan Compute Shaders)[https://www.youtube.com/watch?v=KN9nHo9kvZs]
-(Vulkan Tutorial)[https://vulkan-tutorial.com/]
-(Real Time RayTracing)[https://developer.nvidia.com/blog/vulkan-raytracing]
+(Computer Graphics TU Wien Series)[https://www.youtube.com/watch?v=5VBVWCg7riQ]  
+(constref Vulkan in 2 Hours)[https://www.youtube.com/watch?v=DC9FBRQKNck]  
+(Introduction to Vulkan Compute Shaders)[https://www.youtube.com/watch?v=KN9nHo9kvZs]  
+(Vulkan Tutorial)[https://vulkan-tutorial.com/]  
+(Real Time RayTracing)[https://developer.nvidia.com/blog/vulkan-raytracing]  
 

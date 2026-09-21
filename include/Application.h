@@ -19,6 +19,7 @@ public:
 private:
     void handleInput();
     void handleDeltaTime();
+    void moveCamera();
 
 private:
     Vulkan::VulkanCore vulkanCore;
@@ -29,4 +30,8 @@ private:
     double deltaTime = 0;
     double fps = 0;
     ImGuiLayer imgui;
+    bool moveForward{ false };
+    bool moveBackward{ false };
+    bool moveLeft{ false };
+    bool moveRight{ false };
 };

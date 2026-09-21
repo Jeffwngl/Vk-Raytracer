@@ -1,5 +1,7 @@
 #include "Camera.h"
 
+#include <glm/gtc/matrix_transform.hpp>
+
 /**
  * Keeping the camera on the CPU is negligible as it only sends around 64-100 bytes of data
  * per frame compared to the shaders dispatching millions of shader invocations
@@ -35,6 +37,56 @@ const glm::vec3 Camera::getTarget() const {
 
 float Camera::getFov() const {
     return this->fov;
+}
+
+void Camera::moveForward(float amount) {
+    glm::vec3 forward = glm::normalize(target - pos);
+    glm::vec3 offset = forward * amount;
+
+    pos += offset;
+    target += offset;
+}
+
+void Camera::moveRight(float amount) {
+    glm::vec3 forward = glm::normalize(target - pos);
+    glm::vec3 right = glm::normalize(glm::cross(forward, up));
+    glm::vec3 offset = right * amount;
+
+    pos += offset;
+    target += offset;
+}
+
+void Camera::moveUp(float amount) {
+    glm::vec3 offset = up * amount;
+
+    pos += offset;
+    target += offset;
+}
+
+
+void Camera::yaw(float degrees) {
+    glm::vec3 forward = glm::normalize(target - pos);
+    glm::mat4 rotation = glm::rotate(
+        glm::mat4(1.0f),
+        glm::radians(degrees) * -1.0f,
+        up
+    );
+    glm::vec3 rotated = glm::vec3(rotation * glm::vec4(forward, 0.0f));
+
+    target = pos + rotated;
+}
+
+void Camera::pitch(float degrees) {
+    glm::vec3 forward = glm::normalize(target - pos);
+    glm::vec3 right = glm::normalize(glm::cross(forward, up));
+    glm::mat4 rotation = glm::rotate(
+        glm::mat4(1.0f),
+        glm::radians(degrees),
+        right
+    );
+    glm::vec3 rotated = glm::vec3(rotation * glm::vec4(forward, 0.0f));
+
+    target = pos + rotated;
 }
 
 /**

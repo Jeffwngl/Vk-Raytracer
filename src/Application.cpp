@@ -31,6 +31,8 @@ void Application::run() {
 
         handleDeltaTime();
 
+        moveCamera();
+
         imgui.beginFrame();
 
         imgui.build(fps);
@@ -41,6 +43,9 @@ void Application::run() {
 
 void Application::handleInput() {
     SDL_Event event;
+    Camera& camera = world.getScene().getCamera();
+    float sensitivity = 0.2f;
+
     while (SDL_PollEvent(&event)) {
 
         imgui.processEvent(event);
@@ -48,16 +53,84 @@ void Application::handleInput() {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 vulkanCore.close();
+
                 break;
+
             case SDL_EVENT_KEY_DOWN:
-                // handle moving
+                if (event.key.key == SDLK_W)
+                    moveForward = true;
+
+                if (event.key.key == SDLK_S)
+                    moveBackward = true;
+
+                if (event.key.key == SDLK_A)
+                    moveLeft = true;
+
+                if (event.key.key == SDLK_D)
+                    moveRight = true;
+
                 break;
+
             case SDL_EVENT_KEY_UP:
-                // handle moving
+                if (event.key.key == SDLK_W)
+                    moveForward = false;
+
+                if (event.key.key == SDLK_S)
+                    moveBackward = false;
+
+                if (event.key.key == SDLK_A)
+                    moveLeft = false;
+
+                if (event.key.key == SDLK_D)
+                    moveRight = false;
+
                 break;
+
+            case SDL_EVENT_MOUSE_MOTION:
+                camera.yaw(
+                    event.motion.xrel * sensitivity
+                );
+
+                camera.pitch(
+                    -event.motion.yrel * sensitivity
+                );
+
+                break;
+
             default:
+
                 break;
         }
+    }
+}
+
+void Application::moveCamera() {
+    float speed = 3.0f;
+
+    Camera& camera = world.getScene().getCamera();
+
+    if (moveForward) {
+        camera.moveForward(
+            speed * static_cast<float>(deltaTime)
+        );
+    }
+
+    if (moveBackward) {
+        camera.moveForward(
+            -speed * static_cast<float>(deltaTime)
+        );
+    }
+
+    if (moveRight) {
+        camera.moveRight(
+            speed * static_cast<float>(deltaTime)
+        );
+    }
+
+    if (moveLeft) {
+        camera.moveRight(
+            -speed * static_cast<float>(deltaTime)
+        );
     }
 }
 

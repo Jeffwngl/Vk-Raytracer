@@ -27,13 +27,20 @@ public:
     const glm::vec3 getTarget() const;
     float getFov() const;
 
+    void moveForward(float amount);
+    void moveRight(float amount);
+    void moveUp(float amount);
+
+    void yaw(float degrees);
+    void pitch(float degrees);
+
     GPUData getGPUData(
         uint32_t width,
         uint32_t height
     ) const;
 
 private:
-    glm::vec3 pos{ 0.0f, 0.0f, 0.0f };
+    glm::vec3 pos{ 0.0f, 0.0f, 1.0f };
     glm::vec3 target{ 0.0f, 0.0f, -1.0f };
     glm::vec3 up{ 0.0f, 1.0f, 0.0f };
     float fov{ 45.0f };

@@ -110,7 +110,11 @@ public:
         return materials;
     }
 
-    const Camera getCamera() const {
+    const Camera& getCamera() const {
+        return camera;
+    }
+
+    Camera& getCamera() {
         return camera;
     }
 

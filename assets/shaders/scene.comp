@@ -50,11 +50,15 @@ float sphereRadius(Sphere sphere) {
 
 vec3 skyColor(vec3 direction) {
     float t = 0.5 * (direction.y + 1.0);
-    return mix(
+    float intensity = 0.8;
+
+    vec3 sky = mix(
         vec3(1.0, 1.0, 1.0),
         vec3(0.5, 0.7, 1.0),
         t
     );
+
+    return intensity * sky;
 }
 
 vec3 rayAt(Ray ray, float t) {
@@ -79,6 +83,7 @@ bool hitSphere(
 ) {
     vec3 center = sphereCenter(sphere);
     float radius = sphereRadius(sphere);
+    float absorbtion = 0.6;
 
     vec3 oc = center - ray.origin;
 
@@ -108,7 +113,7 @@ bool hitSphere(
     vec3 outwardNormal = (rec.position - center) / radius;
     setFaceNormal(ray, outwardNormal, rec);
 
-    rec.color = sphere.color.rgb;
+    rec.color = sphere.color.rgb * absorbtion;
 
     return true;
 }
@@ -120,6 +125,7 @@ bool hitGround(
     out HitRecord rec
 ) {
     const float groundY = -1.0;
+    float absorbtion = 0.8;
 
     // ray is almost parallel to the ground
     if (abs(ray.direction.y) < 0.0001) {
@@ -147,7 +153,8 @@ bool hitGround(
         rec
     );
 
-    rec.color = vec3(0.8);
+    // ground light absorbtion amount
+    rec.color = vec3(absorbtion);
 
     return true;
 }
@@ -269,6 +276,14 @@ vec3 rayColor(
     return vec3(0.0);
 }
 
+float linearToGamma(float x) {
+    if (x > 0.0) {
+        return sqrt(x);
+    }
+
+    return 0.0;
+}
+
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     ivec2 size = imageSize(outputImage);
@@ -278,8 +293,8 @@ void main() {
     }
 
     // Random jittered sampling for anti-aliasing
-    // each pixel traces 8 rays instead of 1
-    const uint SAMPLES_PER_PIXEL = 8;
+    // each pixel traces 50 rays instead of 1
+    const uint SAMPLES_PER_PIXEL = 50;
     // random number generator state
     // a unique id per pixel is used as the seed
     uint pixelIdx = uint(pixel.y * size.x + pixel.x);
@@ -306,6 +321,11 @@ void main() {
     }
 
     color /= float(SAMPLES_PER_PIXEL);
+
+    // gamma correction
+    color.x = linearToGamma(color.x);
+    color.y = linearToGamma(color.y);
+    color.z = linearToGamma(color.z);
 
     imageStore(outputImage, pixel, vec4(color, 1.0));
 }

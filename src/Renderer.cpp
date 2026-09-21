@@ -16,6 +16,7 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     createOutputImageView();
 
     createSceneBuffer();
+    createMaterialBuffer();
     
     std::string path = "assets/shaders/scene.comp.spv";
 
@@ -175,11 +176,38 @@ void Renderer::createSceneBuffer() {
     );
 }
 
+void Renderer::createMaterialBuffer() {
+    const std::vector<MaterialDefinition>& materials = scene->getMaterials();
+
+    if (materials.empty()) {
+        throw std::runtime_error(
+            "Cannot create scene buffer: Scene contains no materials."
+        );
+    }
+
+    VkDeviceSize bufferSize = materials.size() * sizeof(MaterialDefinition);
+
+    materialBuffer.initialize(
+        vulkanCore->getVmaAllocator(),
+        bufferSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VMA_MEMORY_USAGE_AUTO,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | 
+        VMA_ALLOCATION_CREATE_MAPPED_BIT
+    );
+
+    materialBuffer.upload(
+        materials.data(),
+        bufferSize
+    );
+}
+
 void Renderer::createComputeDescriptorSet() {
     computeDescriptorSet.initialize(
         *vulkanCore, 
         outputImageView,
-        sceneObjectBuffer
+        sceneObjectBuffer,
+        materialBuffer
     );
 }
 

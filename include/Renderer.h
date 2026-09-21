@@ -30,6 +30,7 @@ private:
     void createOutputImage();
     void createOutputImageView();
     void createSceneBuffer();
+    void createMaterialBuffer();
     void createComputeDescriptorSet();
     void createComputePipeline(std::string& path);
 
@@ -50,6 +51,7 @@ private:
     Vulkan::ComputePipeline computePipeline{};
     Vulkan::ComputeDescriptorSet computeDescriptorSet{};
     Vulkan::Buffer sceneObjectBuffer{};
+    Vulkan::Buffer materialBuffer{};
     const Scene* scene{ nullptr };
     VkImage outputImage{ VK_NULL_HANDLE };
     VkImageView outputImageView{ VK_NULL_HANDLE };

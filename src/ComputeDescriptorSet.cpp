@@ -5,12 +5,17 @@
 
 namespace Vulkan {
 
-void ComputeDescriptorSet::initialize(Vulkan::VulkanCore& vkCore, VkImageView outputImageView, const Buffer& sceneObjectBuffer) {
+void ComputeDescriptorSet::initialize(
+    Vulkan::VulkanCore& vkCore, 
+    VkImageView outputImageView, 
+    const Buffer& sceneObjectBuffer,
+    const Buffer& materialBuffer
+) {
     vulkanCore = &vkCore;
 
     createDescriptorSetLayout();
     createDescriptorPool();
-    createDescriptorSet(outputImageView, sceneObjectBuffer);
+    createDescriptorSet(outputImageView, sceneObjectBuffer, materialBuffer);
 }
 
 void ComputeDescriptorSet::createDescriptorSetLayout() {
@@ -28,9 +33,17 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    std::array<VkDescriptorSetLayoutBinding, 2>bindings{
+    VkDescriptorSetLayoutBinding materialBufferBinding{
+        .binding = 2,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
+    };
+
+    std::array<VkDescriptorSetLayoutBinding, 3>bindings{
         outputImageBinding,
-        sceneBufferBinding
+        sceneBufferBinding,
+        materialBufferBinding
     };
 
     VkDescriptorSetLayoutCreateInfo layoutCI{
@@ -55,7 +68,7 @@ void ComputeDescriptorSet::createDescriptorPool() {
         },
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 1
+            .descriptorCount = 2
         }
     };
 
@@ -74,7 +87,11 @@ void ComputeDescriptorSet::createDescriptorPool() {
     ));
 }
 
-void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, const Buffer& sceneObjectBuffer) {
+void ComputeDescriptorSet::createDescriptorSet(
+    VkImageView outputImageView, 
+    const Buffer& sceneObjectBuffer, 
+    const Buffer& materialBuffer
+) {
     VkDescriptorSetAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool = descriptorPool,
@@ -100,6 +117,12 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, cons
         .range = sceneObjectBuffer.getSize()
     };
 
+    VkDescriptorBufferInfo materialBufferInfo{
+        .buffer = materialBuffer.get(),
+        .offset = 0,
+        .range = materialBuffer.getSize()
+    };
+
     VkWriteDescriptorSet outputImageWrite{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,
@@ -120,9 +143,20 @@ void ComputeDescriptorSet::createDescriptorSet(VkImageView outputImageView, cons
         .pBufferInfo = &sceneBufferInfo
     };
 
-    std::array<VkWriteDescriptorSet, 2>writes{
+    VkWriteDescriptorSet materialBufferWrite{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = 2,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pBufferInfo = &materialBufferInfo
+    };
+
+    std::array<VkWriteDescriptorSet, 3>writes{
         outputImageWrite,
-        sceneObjectBufferWrite
+        sceneObjectBufferWrite,
+        materialBufferWrite
     };
 
     vkUpdateDescriptorSets(

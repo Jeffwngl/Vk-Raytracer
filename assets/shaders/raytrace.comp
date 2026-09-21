@@ -1,0 +1,199 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_control_flow_attributes : require
+
+#include "common/random.glsl"
+#include "common/ray.glsl"
+#include "common/sphere.glsl"
+#include "common/color.glsl"
+#include "common/sampling.glsl"
+#include "common/material.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0, rgba8) uniform image2D outputImage;
+
+layout(std430, set = 0, binding = 1)
+readonly buffer SphereBuffer {
+    Sphere spheres[];
+};
+
+layout(std430, set = 0, binding = 2)
+readonly buffer MaterialBuffer {
+    Material materials[];
+};
+
+layout(push_constant) uniform PushConstants {
+    vec4 cameraPosition;
+    vec4 pixelStart;
+    vec4 pixelDU;
+    vec4 pixelDV;
+
+    uint objectCnt;
+} pc;
+
+bool hitGround(
+    Ray ray,
+    float tMin,
+    float tMax,
+    out HitRecord rec
+) {
+    const float groundY = -1.0;
+
+    // ray is almost parallel to the ground
+    if (abs(ray.direction.y) < 0.0001) {
+        return false;
+    }
+
+    float t = (groundY - ray.origin.y) / ray.direction.y;
+
+    // case 1: intersection lies behind the camera/ray origin
+    // case 2: intersection is behind another object
+    if (t <= tMin || t >= tMax) {
+        return false;
+    }
+
+    rec.t = t;
+    rec.position = rayAt(ray, t);
+
+    vec3 outwardNormal = vec3(0.0, 1.0, 0.0);
+
+    setFaceNormal(
+        ray,
+        outwardNormal,
+        rec
+    );
+
+    rec.materialIndex = MATERIAL_GROUND;
+
+    return true;
+}
+
+
+bool hitScene(
+    Ray ray,
+    out HitRecord closestHit
+) {
+    bool hitAnything = false;
+    float closestT = 1.0 / 0.0;
+
+    for (uint i = 0; i < pc.objectCnt; ++i) {
+        HitRecord temp;
+
+        if (hitSphere(ray, spheres[i], 0.001, closestT, temp)) {
+            hitAnything = true;
+            closestT = temp.t;
+            closestHit = temp;
+        }
+    }
+
+    HitRecord groundHit;
+
+    if (
+        hitGround(
+            ray,
+            0.001,
+            closestT,
+            groundHit
+        )
+    ) {
+        hitAnything = true;
+        closestT = groundHit.t;
+        closestHit = groundHit;
+    }
+
+    return hitAnything;
+}
+
+/**
+* takes a ray plus RNG state and follows the ray through the scene
+* as it bounces, returns the RGB contribution of the whole path.
+*/
+vec3 rayColor(
+    Ray ray,
+    inout uint rngState
+) {
+    vec3 throughput = vec3(1.0);
+
+    const int MAX_BOUNCES = 8;
+
+    for (int bounce = 0; bounce < MAX_BOUNCES; ++bounce) {
+        HitRecord rec;
+
+        if (hitScene(ray, rec)) {
+            Material material = materials[rec.materialIndex];
+
+            Ray scattered;
+            vec3 attenuation;
+
+            if (!scatter(
+                ray,
+                material,
+                rec,
+                rngState,
+                scattered,
+                attenuation
+            )) {
+                return vec3(0.0);
+            }
+
+            throughput *= attenuation;
+
+            ray = scattered;
+        }
+        else {
+            return throughput * skyColor(ray.direction);
+        }
+    }
+
+    return vec3(0.0);
+}
+
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size = imageSize(outputImage);
+
+    if (pixel.x >= size.x || pixel.y >= size.y) {
+        return;
+    }
+
+
+    // random jittered sampling for anti-aliasing
+    // each pixel traces 50 rays instead of 1.
+    const uint SAMPLES_PER_PIXEL = 50;
+    // random number generator state
+    // a unique id per pixel is used as the seed.
+    uint pixelIdx = uint(pixel.y * size.x + pixel.x);
+    uint rngState = tea(pixelIdx, 0u);
+
+    vec3 color = vec3(0.0);
+
+    for (uint i = 0; i < SAMPLES_PER_PIXEL; ++i) {
+        // rnd(rngState) produces random number from [0,1] resulting 
+        // range is [-0.5, 0.5] which shows the offset from the original pixel
+        vec2 jitter = vec2(rnd(rngState), rnd(rngState)) - 0.5;
+
+        // pc.pixelDU is the equivalent world space distance of moving one pixel
+        vec3 pixelPosition =
+            pc.pixelStart.xyz
+            + (float(pixel.x) + jitter.x) * pc.pixelDU.xyz
+            + (float(pixel.y) + jitter.y) * pc.pixelDV.xyz;
+
+        Ray ray;
+
+        ray.origin = pc.cameraPosition.xyz;
+        ray.direction = normalize(pixelPosition - ray.origin);
+
+        color += rayColor(ray, rngState);
+    }
+
+    color /= float(SAMPLES_PER_PIXEL);
+
+    color.x = linearToGamma(color.x);
+    color.y = linearToGamma(color.y);
+    color.z = linearToGamma(color.z);
+
+    imageStore(outputImage, pixel, vec4(color, 1.0));
+}

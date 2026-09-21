@@ -72,9 +72,15 @@ glm::vec2 VulkanCore::getWindowSize() const {
     return windowSize;
 }
 
-VkSemaphore VulkanCore::getRenderFinishedSemaphore(
-    uint32_t imageIndex
-) const {
+VkInstance VulkanCore::getInstance() const {
+    return instance;
+}
+
+SDL_Window* VulkanCore::getWindow() const {
+    return window;
+}
+
+VkSemaphore VulkanCore::getRenderFinishedSemaphore(uint32_t imageIndex) const {
     return renderFinishedSemaphores[imageIndex];
 }
 

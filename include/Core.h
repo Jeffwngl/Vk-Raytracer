@@ -11,6 +11,10 @@
 #include "Swapchain.h"
 #include "Device.h"
 
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_vulkan.h"
+
 namespace Vulkan {
 
 struct FrameData {
@@ -42,6 +46,8 @@ public:
     VmaAllocator getVmaAllocator() const;
     FrameData& getFrameData(uint32_t index);
     VkSemaphore getRenderFinishedSemaphore(uint32_t imageIndex) const;
+    VkInstance getInstance() const;
+    SDL_Window* getWindow() const;
 
     VkSemaphore createSemaphore();
     VkFence createFence();

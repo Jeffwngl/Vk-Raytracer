@@ -187,16 +187,86 @@ bool hitScene(
     return hitAnything;
 }
 
-vec3 rayColor(Ray ray) {
-    HitRecord rec;
+// diffuse lighting
+bool nearZero(vec3 v) {
+    const float epsilon = 1e-8;
 
-    if (hitScene(ray, rec)) {
-        // return rec.color;
-        vec3 normalColor = 0.5 * (rec.normal + vec3(1.0));
-        return normalColor;
+    return
+        abs(v.x) < epsilon &&
+        abs(v.y) < epsilon &&
+        abs(v.z) < epsilon;
+}
+
+/**
+* generate a random vector inside the square in the range [-1, 1]
+* accept only vectors that are in the unit sphere with radius 1
+* i.e. squared length <= 1
+*/
+vec3 generateRandomInUnitSphere(inout uint rngState) {
+    const float epsilon = 1e-16;
+
+    while (true) {
+        vec3 p = vec3(
+            rnd(rngState),
+            rnd(rngState),
+            rnd(rngState)
+        ) * 2.0 - 1.0;
+
+        float lensq = dot(p, p);
+
+        // reject small vectors to avoid floating point imprecision
+        if (epsilon < lensq && lensq <= 1.0) {
+            return p;
+        }
+    }
+}
+
+// return normalized accepted vector
+vec3 generateRandomUnitVector(inout uint rngState) {
+    return normalize(
+        generateRandomInUnitSphere(rngState)
+    );
+}
+
+/**
+* takes a ray plus RNG state and follows the ray through the scene as it
+* diffusively bounces, returns the RGB contribution of the whole path
+*/
+vec3 rayColor(
+    Ray ray,
+    inout uint rngState
+) {
+    vec3 throughput = vec3(1.0);
+
+    // a single ray is allowed to bounce in the scene 8 times as the base
+    const int MAX_BOUNCES = 8;
+
+    for (int bounce = 0; bounce < MAX_BOUNCES; ++bounce) {
+        HitRecord rec;
+
+        if (hitScene(ray, rec)) {
+            throughput *= rec.color;
+
+            // adding the surface normal biases the random direction into hemisphere above surface
+            // random unit vector is only between [-1, 1] and normal is either -1 or 1
+            vec3 scatterDirection = rec.normal + generateRandomUnitVector(rngState);
+
+            if (nearZero(scatterDirection)) {
+                scatterDirection = rec.normal;
+            }
+
+            ray.origin = rec.position + rec.normal * 0.001;
+
+            ray.direction = normalize(scatterDirection);
+        }
+        else {
+            return throughput * skyColor(ray.direction);
+        }
     }
 
-    return skyColor(ray.direction);
+    // ray has exceeded max. bounces without reaching the sky
+    // discard all light contribution
+    return vec3(0.0);
 }
 
 void main() {
@@ -207,8 +277,11 @@ void main() {
         return;
     }
 
-    // Random jittered sampling
+    // Random jittered sampling for anti-aliasing
+    // each pixel traces 8 rays instead of 1
     const uint SAMPLES_PER_PIXEL = 8;
+    // random number generator state
+    // a unique id per pixel is used as the seed
     uint pixelIdx = uint(pixel.y * size.x + pixel.x);
     uint rngState = tea(pixelIdx, 0u);
 
@@ -216,7 +289,10 @@ void main() {
     vec3 color = vec3(0.0);
 
     for (uint i = 0; i < SAMPLES_PER_PIXEL; ++i) {
+        // rnd(rngState) produces random number from [0,1] resulting 
+        // range is [-0.5, 0.5] which shows the offset from the original pixel
         vec2 jitter = vec2(rnd(rngState), rnd(rngState)) - 0.5;
+        // pc.pixelDU is the equivalent world space distance of moving one pixel
         vec3 pixelPosition = 
             pc.pixelStart.xyz 
             + (float(pixel.x) + jitter.x) * pc.pixelDU.xyz 
@@ -226,7 +302,7 @@ void main() {
         ray.origin = pc.cameraPosition.xyz;
         ray.direction = normalize(pixelPosition - ray.origin);
 
-        color += rayColor(ray);
+        color += rayColor(ray, rngState);
     }
 
     color /= float(SAMPLES_PER_PIXEL);

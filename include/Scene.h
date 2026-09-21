@@ -7,7 +7,44 @@
 
 #include "Camera.h"
 
-// const double pi = 3.1415926535897932385;
+enum class MaterialType : uint32_t {
+    LAMBERTIAN = 0,
+    METAL = 1,
+};
+
+/**
+ * using vec4 makes CPU/GPU alignment much easier.
+ * using an abstract class as opposed to a plain struct
+ * would make more sense here, however, everything
+ * would still need to be flattened later anyways.
+ * padding is used to fill up the rest of the space
+ * so the GPU uses the same 48 byte layout.
+ */
+struct MaterialDefinition {
+    glm::vec4 color; // r, g, b, a 16 bytes
+    glm::vec4 params; // x, y, z, w 16 bytes
+    uint32_t type; // 4 bytes
+    uint32_t padding[3]{}; // 12 bytes
+};
+
+inline const MaterialDefinition whiteDiffuse {
+    .color = glm::vec4{1.0f},
+    .params = glm::vec4{0.6f, 0.0f, 0.0f, 0.0f}, // (x is used for absorption in lambertian)
+    .type = static_cast<uint32_t>(MaterialType::LAMBERTIAN),
+};
+
+inline const MaterialDefinition redDiffuse {
+    .color = glm::vec4{0.8f, 0.1f, 0.1f, 1.0f},
+    .params = glm::vec4{0.5f, 0.0f, 0.0f, 0.0f},
+    .type = static_cast<uint32_t>(MaterialType::LAMBERTIAN),
+};
+
+inline const MaterialDefinition silverMetal {
+    .color = glm::vec4{0.8f, 0.8f, 0.8f, 1.0f},
+    .params = glm::vec4{0.05f, 0.0f, 0.0f, 0.0f}, // (x is used for fuzz in metal)
+    .type = static_cast<uint32_t>(MaterialType::METAL),
+};
+
 
 struct Vertex {
     glm::vec3 position;
@@ -32,13 +69,14 @@ struct Transform {
 struct Object {
     Mesh* mesh{ nullptr };
     Transform transform;
-    uint32_t materialIndex{ 0 };
+    uint materialIndex{ 0 };
 };
 
 
 struct Sphere {
     glm::vec4 centerRadius; // (x, y, z, r) 16 bytes
-    glm::vec4 color; // (r, g, b, a) 16 bytes
+    uint materialIndex{ 0 }; // 4 bytes
+    uint32_t padding[3]{}; // 12 bytes
 
     glm::vec3 center() const {
         return glm::vec3(centerRadius);
@@ -57,17 +95,20 @@ public:
         dirty = true;
     }
 
-    void addMesh(const Mesh& mesh);
+    uint32_t addMaterial(const MaterialDefinition& material) {
+        materials.push_back(material);
+        dirty = true;
 
-    void loadObj(const std::string& path);
+        return static_cast<uint32_t>(materials.size() - 1);
+    }
 
     const std::vector<Sphere>& getObjects() const {
         return spheres; // TODO: change to a general type later, use below functions
     }
-    const std::vector<Vertex>& getVertices() const;
-    const std::vector<uint32_t>& getIndices() const;
-    const std::vector<Mesh>& getMeshes() const;
-    // const std::vector<Object>& getObjects() const;
+
+    const std::vector<MaterialDefinition>& getMaterials() const {
+        return materials;
+    }
 
     const Camera getCamera() const {
         return camera;
@@ -85,8 +126,9 @@ private:
     std::vector<Sphere> spheres;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-    std::vector<Mesh> mehes;
+    std::vector<Mesh> meshes;
     std::vector<Object> objects;
+    std::vector<MaterialDefinition> materials;
 
     Camera camera;
 

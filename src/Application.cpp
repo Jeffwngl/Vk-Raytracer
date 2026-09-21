@@ -10,11 +10,13 @@ bool Application::initialize() {
     };
 
     // initialize scene
-    world.Spheres(); // initialize spheres scene
+    world.Spheres();
 
     if (!renderer.initialize(vulkanCore, world.getScene())) {
         return false;
     }
+
+    imgui.initialize(vulkanCore);
 
     return true;
 }
@@ -28,13 +30,21 @@ void Application::run() {
         }
 
         handleDeltaTime();
-        renderer.drawFrame();
+
+        imgui.beginFrame();
+
+        imgui.build(fps);
+
+        renderer.drawFrame(imgui);
     }
 }
 
 void Application::handleInput() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+
+        imgui.processEvent(event);
+
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 vulkanCore.close();
@@ -55,4 +65,15 @@ void Application::handleDeltaTime() {
     lastTime = nowTime;
     nowTime = SDL_GetPerformanceCounter();
     deltaTime = (double)(nowTime - lastTime) / (double)SDL_GetPerformanceFrequency();
+    if (deltaTime > 0.0) {
+        fps = 1.0 / deltaTime;
+    }
+}
+
+Application::~Application() {
+    vkDeviceWaitIdle(
+        vulkanCore.getDevice().get()
+    );
+
+    imgui.cleanUp();
 }

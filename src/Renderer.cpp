@@ -18,7 +18,7 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     createSceneBuffer();
     createMaterialBuffer();
     
-    std::string path = "assets/shaders/scene.comp.spv";
+    std::string path = "assets/shaders/raytrace.comp.spv";
 
     createComputeDescriptorSet();
     createComputePipeline(path);
@@ -26,7 +26,7 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     return true;
 }
 
-void Renderer::drawFrame() {
+void Renderer::drawFrame(ImGuiLayer& imgui) {
     Vulkan::FrameData& frame = vulkanCore->getFrameData(currentFrame);
 
     VkDevice device = vulkanCore->getDevice().get();
@@ -52,7 +52,8 @@ void Renderer::drawFrame() {
     // 4. Record compute + copy commands
     recordCommandBuffers(
         frame.computeCommandBuffer,
-        imageIndex
+        imageIndex,
+        imgui
     );
 
     // 5. Submit 
@@ -76,7 +77,7 @@ void Renderer::drawFrame() {
         presentResult != VK_SUBOPTIMAL_KHR &&
         presentResult != VK_ERROR_OUT_OF_DATE_KHR
     ) {
-        throw std::runtime_error("Failed to present swapchain image!");
+        throw std::runtime_error("Failed to present swapchain image.");
     }
 
     // 7. Advance frame
@@ -262,7 +263,11 @@ void Renderer::resetCommandBuffers(Vulkan::FrameData& frame) {
     utils::check(vkResetCommandBuffer(frame.computeCommandBuffer, 0));
 }
 
-void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
+void Renderer::recordCommandBuffers(
+    VkCommandBuffer commandBuffer, 
+    uint32_t imageIndex,
+    ImGuiLayer& imgui
+) {
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
     };
@@ -375,24 +380,66 @@ void Renderer::recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imag
 
     vkCmdBlitImage(
         commandBuffer,
-
         outputImage,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-
         swapchainImage,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-
         1,
         &region,
-
         VK_FILTER_NEAREST
     );
+
+    // transfer destination -> graphics color attachment
+    transitionImage(
+        commandBuffer,
+        swapchainImage,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+    // get the image view for the current swapchain image
+    VkImageView swapchainImageView = vulkanCore->getSwapchain().getImageViews()[imageIndex];
+
+    VkRenderingAttachmentInfo colorAttachment{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = swapchainImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+
+        // keep the raytraced image already copied into the swapchain
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE
+    };
+
+    VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea = {
+            .offset = { 0, 0 },
+            .extent = {
+                width,
+                height
+            }
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment
+    };
+
+    vkCmdBeginRendering(
+        commandBuffer,
+        &renderingInfo
+    );
+
+    // record ImGui graphics commands
+    imgui.render(commandBuffer);
+
+    vkCmdEndRendering(commandBuffer);
+
 
     // prepare for vkQueuePresentKHR
     transitionImage(
         commandBuffer,
         swapchainImage,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
     );
     

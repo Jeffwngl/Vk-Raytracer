@@ -172,6 +172,10 @@ VkDescriptorSet ComputeDescriptorSet::getDescriptorSet() const {
     return descriptorSet;
 }
 
+VkDescriptorPool ComputeDescriptorSet::getDescriptorPool() const {
+    return descriptorPool;
+}
+
 VkDescriptorSetLayout ComputeDescriptorSet::getDescriptorSetLayout() const {
     return descriptorSetLayout;
 }

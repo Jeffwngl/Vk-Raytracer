@@ -5,11 +5,12 @@
 #include "Core.h"
 #include "Renderer.h"
 #include "World.h"
+#include "ImGuiLayer.h"
 
 class Application {
 public:
     Application() = default;
-    ~Application() = default;
+    ~Application();
 
     bool initialize();
 
@@ -26,4 +27,6 @@ private:
     Uint64 nowTime = SDL_GetPerformanceCounter();
     Uint64 lastTime = 0;
     double deltaTime = 0;
+    double fps = 0;
+    ImGuiLayer imgui;
 };

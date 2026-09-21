@@ -27,6 +27,7 @@ public:
     void cleanup();
     
     VkDescriptorSet getDescriptorSet() const;
+    VkDescriptorPool getDescriptorPool() const;
     VkDescriptorSetLayout getDescriptorSetLayout() const;
 
 private:

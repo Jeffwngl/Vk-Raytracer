@@ -17,6 +17,13 @@ struct Material {
     uint pad2;
 };
 
+vec3 reflect(
+    Ray ray,
+    vec3 normal
+) {
+    return ray.direction - 2.0 * dot(ray.direction, normal) * normal;
+}
+
 
 bool scatter(
     Ray ray,
@@ -43,8 +50,15 @@ bool scatter(
     }
 
     else if (material.type == MATERIAL_METAL) {
-        // to implement
-        return false;
+        vec3 reflectedDirection = reflect(ray, rec.normal);
+
+        scattered.origin = rec.position + rec.normal * 0.0001;
+
+        scattered.direction = normalize(reflectedDirection);
+
+        attenuation = material.color.rgb;
+
+        return true;
     }
 
     return false;

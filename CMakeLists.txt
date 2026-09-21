@@ -29,6 +29,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(glm)
 
+
 add_executable(${CMAKE_PROJECT_NAME}
     src/main.cpp
     src/Application.cpp
@@ -39,6 +40,11 @@ add_executable(${CMAKE_PROJECT_NAME}
     src/ComputePipeline.cpp
     src/ComputeDescriptorSet.cpp
     src/Vma.cpp
+    src/World.cpp
+    src/Buffer.cpp
+    src/Device.cpp
+    src/Camera.cpp
+    src/ImGuiLayer.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME}
@@ -55,8 +61,23 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         GPUOpen::VulkanMemoryAllocator
 )
 
-# Other project specific header files
-# target_include_directories()
+# IMGUI
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+
+    ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
 
 if(MSVC)
     target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE

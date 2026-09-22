@@ -6,8 +6,12 @@ class World {
 public:
     World() = default;
 
-    // scene names
+    // default scene with spheres
     void Spheres();
+
+    void RayTracingInOneWeekend();
+
+    // to implement
     void CornellBox();
 
     Scene& getScene() {

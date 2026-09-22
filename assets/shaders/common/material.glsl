@@ -3,8 +3,10 @@
 
 const uint MATERIAL_LAMBERTIAN = 0;
 const uint MATERIAL_METAL = 1;
+const uint MATERIAL_DIELECTRIC = 2;
 
 const uint MATERIAL_GROUND = MATERIAL_LAMBERTIAN;
+const float AIR_REFRACTIVITY = 1.0;
 
 
 struct Material {
@@ -24,6 +26,20 @@ vec3 reflect(
     return ray.direction - 2.0 * dot(ray.direction, normal) * normal;
 }
 
+vec3 refract(
+    Ray ray,
+    vec3 normal,
+    float refractivityIn,
+    float refractivityOut
+) {
+    vec3 unitDir = normalize(ray.direction);
+    float cosTheta = min(dot(-unitDir, normal), 1.0);
+    float eta = refractivityIn / refractivityOut;
+    vec3 rayOutPerp = eta * (unitDir + cosTheta * normal);
+    vec3 rayOutParallel = -sqrt(abs(1.0 - dot(rayOutPerp, rayOutPerp))) * normal;
+
+    return rayOutPerp + rayOutParallel;
+}
 
 bool scatter(
     Ray ray,
@@ -44,6 +60,7 @@ bool scatter(
 
         scattered.direction = normalize(scatterDirection);
 
+        // material.params.x here is reflectivity
         attenuation = material.color.rgb * material.params.x;
 
         return true;
@@ -54,7 +71,28 @@ bool scatter(
 
         scattered.origin = rec.position + rec.normal * 0.0001;
 
-        scattered.direction = normalize(reflectedDirection);
+        // material.params.x here is fuzziness of the radius of the fuzz
+        // factor unit sphere
+        scattered.direction = 
+            normalize(reflectedDirection) + 
+            (material.params.x * generateRandomUnitVector(rngState));
+
+        attenuation = material.color.rgb;
+
+        return (dot(scattered.direction, rec.normal) > 0);
+    }
+
+    else if (material.type == MATERIAL_DIELECTRIC) {
+        vec3 refractedDirection = refract(
+            ray,
+            rec.normal,
+            AIR_REFRACTIVITY,
+            material.params.x // materials.params.x is the refractivity of the object
+        );
+
+        scattered.origin = rec.position + rec.normal * 0.0001;
+
+        scattered.direction = normalize(refractedDirection);
 
         attenuation = material.color.rgb;
 

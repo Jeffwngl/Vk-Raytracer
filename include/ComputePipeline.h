@@ -9,11 +9,13 @@
 
 namespace Vulkan {
 
-// keep 16 byte intervals (80 bytes total)
+// keep 16 byte intervals for GPU interpretation
 struct alignas(16) PushConstants {
     GPUData camera;
 
     uint32_t objectCnt;
+    uint32_t samplesPerPixel = 8;
+    uint32_t maxBounces = 8;
 };
 
 class ComputePipeline {

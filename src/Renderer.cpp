@@ -26,7 +26,7 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     return true;
 }
 
-void Renderer::drawFrame(ImGuiLayer& imgui) {
+void Renderer::drawFrame(ImGuiLayer& imgui, RenderSettings& settings) {
     Vulkan::FrameData& frame = vulkanCore->getFrameData(currentFrame);
 
     VkDevice device = vulkanCore->getDevice().get();
@@ -53,7 +53,8 @@ void Renderer::drawFrame(ImGuiLayer& imgui) {
     recordCommandBuffers(
         frame.computeCommandBuffer,
         imageIndex,
-        imgui
+        imgui,
+        settings
     );
 
     // 5. Submit 
@@ -266,7 +267,8 @@ void Renderer::resetCommandBuffers(Vulkan::FrameData& frame) {
 void Renderer::recordCommandBuffers(
     VkCommandBuffer commandBuffer, 
     uint32_t imageIndex,
-    ImGuiLayer& imgui
+    ImGuiLayer& imgui,
+    RenderSettings& settings
 ) {
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -311,7 +313,9 @@ void Renderer::recordCommandBuffers(
 
     Vulkan::PushConstants pc{
         .camera = scene->getCamera().getGPUData(width, height),
-        .objectCnt = static_cast<uint32_t>(scene->getObjects().size())
+        .objectCnt = static_cast<uint32_t>(scene->getObjects().size()),
+        .samplesPerPixel = settings.samplesPerPixel,
+        .maxBounces = settings.maxBounces
     };
 
     vkCmdPushConstants(

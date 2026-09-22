@@ -6,6 +6,7 @@
 #include "Renderer.h"
 #include "World.h"
 #include "ImGuiLayer.h"
+#include "RenderSettings.h"
 
 class Application {
 public:
@@ -17,7 +18,7 @@ public:
     void run();
 
 private:
-    void handleInput();
+    void handleInput(Camera& camera);
     void handleDeltaTime();
     void moveCamera();
 
@@ -34,4 +35,6 @@ private:
     bool moveBackward{ false };
     bool moveLeft{ false };
     bool moveRight{ false };
+
+    RenderSettings renderSettings{};
 };

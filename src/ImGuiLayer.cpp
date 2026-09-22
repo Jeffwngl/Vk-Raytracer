@@ -60,10 +60,69 @@ void ImGuiLayer::beginFrame() {
     ImGui::NewFrame();
 }
 
-void ImGuiLayer::build(float fps) {
-    ImGui::SetNextWindowSize(ImVec2(300, 300));
-    ImGui::Begin("Raytracer");
-    ImGui::Text("FPS: %.1f", fps);
+void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowSize(ImVec2(250, 300));
+    ImGui::SetNextWindowPos(
+        ImVec2(10.0f + 250.0f, 10.0f),
+        ImGuiCond_Always,
+        ImVec2(1.0f, 0.0f)
+    );
+
+    ImGui::Begin("Settings");
+
+    ImGui::Spacing();
+
+    ImGui::Text("Help");
+    ImGui::Separator();
+    ImGui::Text("- WASD to move.");
+    ImGui::Text("- Press T to toggle mouse.");
+    ImGui::Spacing();
+
+    ImGui::Text("Scene");
+    ImGui::Separator();
+    
+    ImGui::Spacing();
+
+    ImGui::Text("Ray tracing");
+    ImGui::Separator();
+    ImGui::SliderScalar(
+        "Samples",
+        ImGuiDataType_U32,
+        &settings.samplesPerPixel,
+        &settings.sliderMin,
+        &settings.sliderMax
+    );
+    ImGui::SliderScalar(
+        "Bounces",
+        ImGuiDataType_U32,
+        &settings.maxBounces,
+        &settings.sliderMin,
+        &settings.sliderMax
+    );
+    ImGui::Spacing();
+
+    ImGui::Text("Camera");
+    ImGui::Separator();
+    ImGui::SliderFloat(
+        "FOV",
+        &camera.getFov(),
+        1.0,
+        100.0
+    );
+    ImGui::Spacing();
+
+    ImGui::End();
+
+    ImGui::SetNextWindowPos(
+        ImVec2(io.DisplaySize.x - 10.0f, 10.0f),
+        ImGuiCond_Always,
+        ImVec2(1.0f, 0.0f)
+    );
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+    ImGui::Begin("Stats", nullptr, flags);
+    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+    ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
     ImGui::End();
 }
 

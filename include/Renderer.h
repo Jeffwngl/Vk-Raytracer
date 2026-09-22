@@ -6,6 +6,7 @@
 #include "Buffer.h"
 #include "Scene.h"
 #include "ImGuiLayer.h"
+#include "RenderSettings.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,15 +19,25 @@ public:
 
     bool initialize(Vulkan::VulkanCore& vkCore, const Scene& scene);
 
-    void drawFrame(ImGuiLayer& imgui);
+    void drawFrame(ImGuiLayer& imgui, RenderSettings& settings);
     void cleanUp();
 
 private:
     void waitForFences(VkDevice device, Vulkan::FrameData& frame);
-    bool acquireSwapchainImage(VkDevice device, VkSwapchainKHR swapchain, Vulkan::FrameData& frame, uint32_t& imageIndex);
+    bool acquireSwapchainImage(
+        VkDevice device, 
+        VkSwapchainKHR swapchain, 
+        Vulkan::FrameData& frame, 
+        uint32_t& imageIndex
+    );
     void resetFences(VkDevice device, Vulkan::FrameData& frame);
     void resetCommandBuffers(Vulkan::FrameData& frame);
-    void recordCommandBuffers(VkCommandBuffer commandBuffer, uint32_t imageIndex, ImGuiLayer& imgui);
+    void recordCommandBuffers(
+        VkCommandBuffer commandBuffer, 
+        uint32_t imageIndex, 
+        ImGuiLayer& imgui,
+        RenderSettings& settings
+    );
 
     void createOutputImage();
     void createOutputImageView();

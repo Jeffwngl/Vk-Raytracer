@@ -1,13 +1,15 @@
 #pragma once
 
 #include "Core.h"
+#include "Camera.h"
+#include "RenderSettings.h"
 
 class ImGuiLayer {
 public:
     void initialize(Vulkan::VulkanCore& core);
     void processEvent(const SDL_Event& event);
     void beginFrame();
-    void build(float fps);
+    void build(RenderSettings& settings, Camera& camera);
     void render(VkCommandBuffer commandBuffer);
     void cleanUp();
 

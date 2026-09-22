@@ -31,6 +31,8 @@ layout(push_constant) uniform PushConstants {
     vec4 pixelDV;
 
     uint objectCnt;
+    uint samplesPerPixel;
+    uint maxBounces;
 } pc;
 
 bool hitGround(
@@ -116,9 +118,7 @@ vec3 rayColor(
 ) {
     vec3 throughput = vec3(1.0);
 
-    const int MAX_BOUNCES = 8;
-
-    for (int bounce = 0; bounce < MAX_BOUNCES; ++bounce) {
+    for (int bounce = 0; bounce < pc.maxBounces; ++bounce) {
         HitRecord rec;
 
         if (hitScene(ray, rec)) {
@@ -161,8 +161,8 @@ void main() {
 
 
     // random jittered sampling for anti-aliasing
-    // each pixel traces 50 rays instead of 1.
-    const uint SAMPLES_PER_PIXEL = 50;
+    // each pixel traces 8 rays instead of 1.
+
     // random number generator state
     // a unique id per pixel is used as the seed.
     uint pixelIdx = uint(pixel.y * size.x + pixel.x);
@@ -170,7 +170,7 @@ void main() {
 
     vec3 color = vec3(0.0);
 
-    for (uint i = 0; i < SAMPLES_PER_PIXEL; ++i) {
+    for (uint i = 0; i < pc.samplesPerPixel; ++i) {
         // rnd(rngState) produces random number from [0,1] resulting 
         // range is [-0.5, 0.5] which shows the offset from the original pixel
         vec2 jitter = vec2(rnd(rngState), rnd(rngState)) - 0.5;
@@ -189,7 +189,7 @@ void main() {
         color += rayColor(ray, rngState);
     }
 
-    color /= float(SAMPLES_PER_PIXEL);
+    color /= float(pc.samplesPerPixel);
 
     color.x = linearToGamma(color.x);
     color.y = linearToGamma(color.y);

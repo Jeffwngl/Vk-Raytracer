@@ -10,6 +10,7 @@
 enum class MaterialType : uint32_t {
     LAMBERTIAN = 0,
     METAL = 1,
+    DIELECTRIC = 2,
 };
 
 /**
@@ -43,6 +44,12 @@ inline const MaterialDefinition silverMetal {
     .color = glm::vec4{0.8f, 0.8f, 0.8f, 1.0f},
     .params = glm::vec4{0.05f, 0.0f, 0.0f, 0.0f}, // (x is used for fuzz in metal)
     .type = static_cast<uint32_t>(MaterialType::METAL),
+};
+
+inline const MaterialDefinition glass {
+    .color = glm::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+    .params = glm::vec4{1.52f, 0.0f, 0.0f, 0.0f}, // (x is used for refractivity)
+    .type = static_cast<uint32_t>(MaterialType::DIELECTRIC),
 };
 
 

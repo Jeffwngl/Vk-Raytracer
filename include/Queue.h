@@ -2,6 +2,8 @@
 
 #include <vulkan/vulkan.h>
 
+namespace Vulkan {
+
 class Queue {
 public:
     Queue() = default;
@@ -31,11 +33,8 @@ public:
         VkSemaphore waitSemaphore
     ) const;
 
-	// uint32_t acquireNextImage();
-	// void submitSync(VkCommandBuffer commandBuffer);
-	// void submitAsync(VkCommandBuffer commandBuffer);
-	// void present(uint32_t imageIndex);
-
 private:
 	VkQueue queue{ VK_NULL_HANDLE };
 };
+
+}

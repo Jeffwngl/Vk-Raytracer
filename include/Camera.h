@@ -26,6 +26,7 @@ public:
     const glm::vec3 getPos() const;
     const glm::vec3 getTarget() const;
     float getFov() const;
+    float& getFov();
 
     void moveForward(float amount);
     void moveRight(float amount);

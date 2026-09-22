@@ -3,6 +3,8 @@
 #include "Queue.h"
 #include "Utils.h"
 
+namespace Vulkan {
+
 VkQueue Queue::get() const {
     return queue;
 }
@@ -76,4 +78,6 @@ VkResult Queue::present(
         queue,
         &presentInfo
     );
+}
+
 }

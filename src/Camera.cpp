@@ -39,6 +39,10 @@ float Camera::getFov() const {
     return this->fov;
 }
 
+float& Camera::getFov() {
+    return this->fov;
+}
+
 void Camera::moveForward(float amount) {
     glm::vec3 forward = glm::normalize(target - pos);
     glm::vec3 offset = forward * amount;

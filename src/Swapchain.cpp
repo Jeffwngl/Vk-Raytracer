@@ -19,7 +19,7 @@ void Swapchain::initialize(
 void Swapchain::createSwapchain() {
     SwapchainSupportDetails supportDetails = 
         querySwapchainSupport(
-            vulkanCore->getPhysicalDevice(), 
+            vulkanCore->getDevice().getPhysicalDevice(), 
             vulkanCore->getSurface()
         );
 
@@ -50,7 +50,7 @@ void Swapchain::createSwapchain() {
     };
 
     utils::check(vkCreateSwapchainKHR(
-        vulkanCore->getDevice(),
+        vulkanCore->getDevice().get(),
         &swapchainCI,
         nullptr,
         &swapchain
@@ -58,7 +58,7 @@ void Swapchain::createSwapchain() {
 
     utils::check(
         vkGetSwapchainImagesKHR(
-            vulkanCore->getDevice(),
+            vulkanCore->getDevice().get(),
             swapchain,
             &imageCnt,
             nullptr
@@ -69,7 +69,7 @@ void Swapchain::createSwapchain() {
 
     utils::check(
         vkGetSwapchainImagesKHR(
-            vulkanCore->getDevice(),
+            vulkanCore->getDevice().get(),
             swapchain,
             &imageCnt,
             swapchainImages.data()
@@ -101,7 +101,7 @@ void Swapchain::createImageViews() {
 
         utils::check(
             vkCreateImageView(
-                vulkanCore->getDevice(),
+                vulkanCore->getDevice().get(),
                 &imageViewCI,
                 nullptr,
                 &swapchainImageViews[i]
@@ -236,7 +236,7 @@ SwapchainSupportDetails Swapchain::querySwapchainSupport(
 }
 
 void Swapchain::checkBlitSupport(VkFormat srcFormat) {
-    VkPhysicalDevice physicalDevice = vulkanCore->getPhysicalDevice();
+    VkPhysicalDevice physicalDevice = vulkanCore->getDevice().getPhysicalDevice();
 
     // VkFormat srcFormat = VK_FORMAT_R8G8B8A8_UNORM;
     VkFormat dstFormat = this->getFormat();
@@ -275,7 +275,7 @@ void Swapchain::cleanUp() {
         return;
     }
 
-    VkDevice device = vulkanCore->getDevice();
+    VkDevice device = vulkanCore->getDevice().get();
 
     for (VkImageView view : swapchainImageViews) {
         if (view != VK_NULL_HANDLE) {

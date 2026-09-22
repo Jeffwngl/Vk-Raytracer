@@ -34,4 +34,8 @@ vec3 generateRandomUnitVector(inout uint rngState) {
     );
 }
 
+float randomFloat(inout uint rngState) {
+    return rnd(rngState);
+}
+
 #endif

@@ -26,15 +26,38 @@ vec3 reflect(
     return ray.direction - 2.0 * dot(ray.direction, normal) * normal;
 }
 
+float reflectance(
+    float cosTheta,
+    float refractiveIndex
+) {
+    // use schlick approximation for reflectance
+    float r0 = (1.0 - refractiveIndex) / (1.0 + refractiveIndex);
+    r0 = r0 * r0;
+    
+    return r0 + (1.0 - r0) * pow((1 - cosTheta), 5);
+}
+
 vec3 refract(
     Ray ray,
     vec3 normal,
     float refractivityIn,
-    float refractivityOut
+    float refractivityOut,
+    inout uint rngState
 ) {
     vec3 unitDir = normalize(ray.direction);
     float cosTheta = min(dot(-unitDir, normal), 1.0);
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
     float eta = refractivityIn / refractivityOut;
+
+    float randomValue = randomFloat(rngState);
+    
+    if (
+        eta * sinTheta > 1.0 ||
+        reflectance(cosTheta, refractivityIn) > randomValue
+    ) {
+        return reflect(ray, normal);
+    }
+
     vec3 rayOutPerp = eta * (unitDir + cosTheta * normal);
     vec3 rayOutParallel = -sqrt(abs(1.0 - dot(rayOutPerp, rayOutPerp))) * normal;
 
@@ -87,7 +110,8 @@ bool scatter(
             ray,
             rec.normal,
             AIR_REFRACTIVITY,
-            material.params.x // materials.params.x is the refractivity of the object
+            material.params.x, // materials.params.x is the refractivity of the object
+            rngState
         );
 
         scattered.origin = rec.position + rec.normal * 0.0001;

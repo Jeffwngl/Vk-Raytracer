@@ -23,7 +23,10 @@ bool Application::initialize() {
 
 void Application::run() {
     while (vulkanCore.running) {
-        handleInput();
+
+        Camera& camera = world.getScene().getCamera();
+
+        handleInput(camera);
 
         if (!vulkanCore.running) {
             break;
@@ -35,15 +38,17 @@ void Application::run() {
 
         imgui.beginFrame();
 
-        imgui.build(fps);
+        imgui.build(
+            renderSettings,
+            camera
+        );
 
-        renderer.drawFrame(imgui);
+        renderer.drawFrame(imgui, renderSettings);
     }
 }
 
-void Application::handleInput() {
+void Application::handleInput(Camera& camera) {
     SDL_Event event;
-    Camera& camera = world.getScene().getCamera();
     float sensitivity = 0.2f;
 
     while (SDL_PollEvent(&event)) {

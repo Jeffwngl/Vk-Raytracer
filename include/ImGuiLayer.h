@@ -15,4 +15,7 @@ public:
 
 private:
     Vulkan::VulkanCore* vulkanCore{ nullptr };
+    // used only for SliderScalar
+    uint32_t sliderMin = 0;
+    uint32_t sliderMax = 64;
 };

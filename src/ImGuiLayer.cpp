@@ -90,15 +90,15 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
         "Samples (Per Pixel)",
         ImGuiDataType_U32,
         &settings.samplesPerPixel,
-        &settings.sliderMin,
-        &settings.sliderMax
+        &sliderMin,
+        &sliderMax
     );
     ImGui::SliderScalar(
         "Bounces",
         ImGuiDataType_U32,
         &settings.maxBounces,
-        &settings.sliderMin,
-        &settings.sliderMax
+        &sliderMin,
+        &sliderMax
     );
     ImGui::Spacing();
 

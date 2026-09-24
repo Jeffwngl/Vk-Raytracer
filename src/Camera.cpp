@@ -3,7 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 /**
- * Keeping the camera on the CPU is negligible as it only sends around 64-100 bytes of data
+ * keeping the camera on the CPU is negligible as it only sends around 64-100 bytes of data
  * per frame compared to the shaders dispatching millions of shader invocations
  */
 Camera::Camera(
@@ -43,6 +43,14 @@ float& Camera::getFov() {
     return this->fov;
 }
 
+float& Camera::getFocusDist() {
+    return this->focusDist;
+}
+
+float& Camera::getDefocusAngle() {
+    return this->defocusAngle;
+}
+
 void Camera::moveForward(float amount) {
     glm::vec3 forward = glm::normalize(target - pos);
     glm::vec3 offset = forward * amount;
@@ -66,7 +74,6 @@ void Camera::moveUp(float amount) {
     pos += offset;
     target += offset;
 }
-
 
 void Camera::yaw(float degrees) {
     glm::vec3 forward = glm::normalize(target - pos);
@@ -110,9 +117,9 @@ GPUData Camera::getGPUData(
     const float theta = glm::radians(fov);
     const float h = glm::tan(theta / 2.0f);
 
-    const float focalLength = glm::length(pos - target);
+    // const float focalLength = glm::length(pos - target);
 
-    const float viewportHeight = 2.0f * h * focalLength;
+    const float viewportHeight = 2.0f * h * focusDist;
 
     const float viewportWidth = viewportHeight * aspectRatio;
 
@@ -122,21 +129,24 @@ GPUData Camera::getGPUData(
     glm::vec3 v = glm::cross(w, u);
 
     glm::vec3 viewportU = viewportWidth * u;
-
     glm::vec3 viewportV = viewportHeight * -v;
 
     glm::vec3 pixelDeltaU = viewportU / static_cast<float>(width);
-
     glm::vec3 pixelDeltaV = viewportV / static_cast<float>(height);
 
-    glm::vec3 viewportUpperLeft = pos - focalLength * w - viewportU / 2.0f - viewportV / 2.0f;
-
+    glm::vec3 viewportUpperLeft = pos - focusDist * w - viewportU / 2.0f - viewportV / 2.0f;
     glm::vec3 pixel00 = viewportUpperLeft + 0.5f * (pixelDeltaU + pixelDeltaV);
+
+    float defocusRadius = focusDist * tan(glm::radians(defocusAngle * 0.5f));
+    glm::vec3 defocusDiskU = u * defocusRadius;
+    glm::vec3 defocusDiskV = v * defocusRadius;
 
     return {
         glm::vec4(pos, 0.0f),
         glm::vec4(pixel00, 0.0f),
         glm::vec4(pixelDeltaU, 0.0f),
-        glm::vec4(pixelDeltaV, 0.0f)
+        glm::vec4(pixelDeltaV, 0.0f),
+        glm::vec4(defocusDiskU, 0.0f),
+        glm::vec4(defocusDiskV, 0.0f)
     };
 }

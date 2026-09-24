@@ -10,7 +10,7 @@ bool Application::initialize() {
     };
 
     // initialize scene
-    world.Spheres();
+    world.RayTracingInOneWeekend();
 
     if (!renderer.initialize(vulkanCore, world.getScene())) {
         return false;
@@ -62,6 +62,9 @@ void Application::handleInput(Camera& camera) {
                 break;
 
             case SDL_EVENT_KEY_DOWN:
+                if (event.key.key == SDLK_T && !event.key.repeat)
+                    cameraMouseEnabled = !cameraMouseEnabled;
+
                 if (event.key.key == SDLK_W)
                     moveForward = true;
 
@@ -92,13 +95,15 @@ void Application::handleInput(Camera& camera) {
                 break;
 
             case SDL_EVENT_MOUSE_MOTION:
-                camera.yaw(
-                    event.motion.xrel * sensitivity
-                );
+                if (cameraMouseEnabled) {
+                    camera.yaw(
+                        event.motion.xrel * sensitivity
+                    );
 
-                camera.pitch(
-                    -event.motion.yrel * sensitivity
-                );
+                    camera.pitch(
+                        -event.motion.yrel * sensitivity
+                    );
+                }
 
                 break;
 

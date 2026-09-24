@@ -35,6 +35,7 @@ private:
     bool moveBackward{ false };
     bool moveLeft{ false };
     bool moveRight{ false };
+    bool cameraMouseEnabled{ false };
 
     RenderSettings renderSettings{};
 };

@@ -28,6 +28,21 @@ vec3 generateRandomInUnitSphere(inout uint rngState) {
     }
 }
 
+vec2 generateRandomInUnitDisk(inout uint rngState) {
+    while (true) {
+        vec2 p = vec2(
+            rnd(rngState),
+            rnd(rngState)
+        );
+
+        float lensq = dot(p, p);
+
+        if (lensq < 1) {
+            return p;
+        }   
+    }
+}
+
 vec3 generateRandomUnitVector(inout uint rngState) {
     return normalize(
         generateRandomInUnitSphere(rngState)

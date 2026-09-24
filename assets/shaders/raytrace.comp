@@ -30,6 +30,9 @@ layout(push_constant) uniform PushConstants {
     vec4 pixelDU;
     vec4 pixelDV;
 
+    vec4 defocusDiskU;
+    vec4 defocusDiskV;
+
     uint objectCnt;
     uint samplesPerPixel;
     uint maxBounces;
@@ -159,7 +162,6 @@ void main() {
         return;
     }
 
-
     // random jittered sampling for anti-aliasing
     // each pixel traces 8 rays instead of 1.
 
@@ -183,7 +185,14 @@ void main() {
 
         Ray ray;
 
-        ray.origin = pc.cameraPosition.xyz;
+        // defocus blur
+        // vec3 lensOffset = vec3(0.0, 0.0, 0.0);
+        vec2 diskSample = generateRandomInUnitDisk(rngState);
+        vec3 lensOffset = 
+            diskSample.x * pc.defocusDiskU.xyz +
+            diskSample.y * pc.defocusDiskV.xyz;
+
+        ray.origin = pc.cameraPosition.xyz + lensOffset;
         ray.direction = normalize(pixelPosition - ray.origin);
 
         color += rayColor(ray, rngState);

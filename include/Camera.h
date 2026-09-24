@@ -7,6 +7,9 @@ struct GPUData {
     glm::vec4 pixelStart;
     glm::vec4 pixelDU;
     glm::vec4 pixelDV;
+
+    glm::vec4 defocusDiskU;
+    glm::vec4 defocusDiskV;
 };
 
 class Camera {
@@ -28,6 +31,11 @@ public:
     float getFov() const;
     float& getFov();
 
+    float& getFocusDist();
+    float& getDefocusAngle();
+    glm::vec3 getDefocusDiskU();
+    glm::vec3 getDefocusDiskV();
+
     void moveForward(float amount);
     void moveRight(float amount);
     void moveUp(float amount);
@@ -45,4 +53,7 @@ private:
     glm::vec3 target{ 0.0f, 0.0f, -1.0f };
     glm::vec3 up{ 0.0f, 1.0f, 0.0f };
     float fov{ 45.0f };
+
+    float defocusAngle{ 0.5f };
+    float focusDist{ 10.0f }; // distance from camera to perfect focus
 };

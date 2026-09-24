@@ -62,9 +62,9 @@ void ImGuiLayer::beginFrame() {
 
 void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(250, 300));
+    ImGui::SetNextWindowSize(ImVec2(350, 300));
     ImGui::SetNextWindowPos(
-        ImVec2(10.0f + 250.0f, 10.0f),
+        ImVec2(10.0f + 350.0f, 10.0f),
         ImGuiCond_Always,
         ImVec2(1.0f, 0.0f)
     );
@@ -87,7 +87,7 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
     ImGui::Text("Ray tracing");
     ImGui::Separator();
     ImGui::SliderScalar(
-        "Samples",
+        "Samples (Per Pixel)",
         ImGuiDataType_U32,
         &settings.samplesPerPixel,
         &settings.sliderMin,
@@ -107,8 +107,21 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
     ImGui::SliderFloat(
         "FOV",
         &camera.getFov(),
-        1.0,
-        100.0
+        1.0f,
+        100.0f
+    );
+    ImGui::SliderFloat(
+        "Focus Distance",
+        &camera.getFocusDist(),
+        1.0f,
+        50.0f
+    );
+    ImGui::SliderFloat(
+        "Defocus Angle",
+        &camera.getDefocusAngle(),
+        0.0f,
+        5.0f,
+        "%.2f deg"
     );
     ImGui::Spacing();
 

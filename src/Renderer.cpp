@@ -311,11 +311,13 @@ void Renderer::recordCommandBuffers(
         nullptr
     );
 
+    Camera camera = scene->getCamera();
+
     Vulkan::PushConstants pc{
-        .camera = scene->getCamera().getGPUData(width, height),
+        .camera = camera.getGPUData(width, height),
         .objectCnt = static_cast<uint32_t>(scene->getObjects().size()),
         .samplesPerPixel = settings.samplesPerPixel,
-        .maxBounces = settings.maxBounces
+        .maxBounces = settings.maxBounces,
     };
 
     vkCmdPushConstants(

@@ -20,6 +20,11 @@ public:
     bool initialize(Vulkan::VulkanCore& vkCore, const Scene& scene);
 
     void drawFrame(ImGuiLayer& imgui, RenderSettings& settings);
+
+    uint32_t getAccumulatedFrames() const;
+    void advanceAccumulatedFrames();
+    void resetAccumulatedFrames();
+
     void cleanUp();
 
 private:
@@ -39,8 +44,12 @@ private:
         RenderSettings& settings
     );
 
+    void createImages();
+    void createImageViews();
     void createOutputImage();
     void createOutputImageView();
+    void createAccumulatedImage();
+    void createAccumulatedImageView();
     void createSceneBuffer();
     void createMaterialBuffer();
     void createComputeDescriptorSet();
@@ -58,15 +67,24 @@ private:
 private:
     Vulkan::VulkanCore* vulkanCore{ nullptr };
     uint32_t currentFrame{ 0 };
+
     bool outputImageInitialized{ false };
+    bool accumulatedImageInitialized{ false };
 
     Vulkan::ComputePipeline computePipeline{};
     Vulkan::ComputeDescriptorSet computeDescriptorSet{};
+
     Vulkan::Buffer sceneObjectBuffer{};
     Vulkan::Buffer materialBuffer{};
     const Scene* scene{ nullptr };
+
     VkImage outputImage{ VK_NULL_HANDLE };
     VkImageView outputImageView{ VK_NULL_HANDLE };
     VmaAllocation outputImageAllocation{ VK_NULL_HANDLE };
+    VkImage accumulatedImage{ VK_NULL_HANDLE };
+    VkImageView accumulatedImageView{ VK_NULL_HANDLE };
+    VmaAllocation accumulatedImageAllocation{ VK_NULL_HANDLE };
+
+    uint32_t accumulatedFrames{ 0 };
     uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };
 };

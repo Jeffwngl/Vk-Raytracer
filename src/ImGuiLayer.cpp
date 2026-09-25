@@ -60,11 +60,16 @@ void ImGuiLayer::beginFrame() {
     ImGui::NewFrame();
 }
 
-void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
+bool ImGuiLayer::build(
+    RenderSettings& settings, 
+    Camera& camera, 
+    uint32_t accumulatedFrames
+) {
+    bool changed = false;
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowSize(ImVec2(350, 300));
+    ImGui::SetNextWindowSize(ImVec2(360, 350));
     ImGui::SetNextWindowPos(
-        ImVec2(10.0f + 350.0f, 10.0f),
+        ImVec2(10.0f + 360.0f, 10.0f),
         ImGuiCond_Always,
         ImVec2(1.0f, 0.0f)
     );
@@ -75,8 +80,8 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
 
     ImGui::Text("Help");
     ImGui::Separator();
-    ImGui::Text("- WASD to move.");
-    ImGui::Text("- Press T to toggle mouse.");
+    ImGui::Text("- `WASD` to move.");
+    ImGui::Text("- Press `T` to toggle mouse.");
     ImGui::Spacing();
 
     ImGui::Text("Scene");
@@ -86,6 +91,19 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
 
     ImGui::Text("Ray tracing");
     ImGui::Separator();
+    bool accumulate = settings.accumulateRays != 0;
+    if (ImGui::Checkbox("Accumulate Rays", &accumulate)) {
+        settings.accumulateRays = accumulate ? 1u : 0u;
+    }
+    ImGui::SetNextItemWidth(200.0f);
+    ImGui::SliderScalar(
+        "Samples (Per Frame)",
+        ImGuiDataType_U32,
+        &settings.samplesPerFrame,
+        &sliderMin,
+        &sliderMax
+    );
+    ImGui::SetNextItemWidth(200.0f);
     ImGui::SliderScalar(
         "Samples (Per Pixel)",
         ImGuiDataType_U32,
@@ -93,6 +111,7 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
         &sliderMin,
         &sliderMax
     );
+    ImGui::SetNextItemWidth(200.0f);
     ImGui::SliderScalar(
         "Bounces",
         ImGuiDataType_U32,
@@ -104,25 +123,34 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
 
     ImGui::Text("Camera");
     ImGui::Separator();
-    ImGui::SliderFloat(
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderFloat(
         "FOV",
         &camera.getFov(),
         1.0f,
         100.0f
-    );
-    ImGui::SliderFloat(
+    )) {
+        changed = true;
+    }
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderFloat(
         "Focus Distance",
         &camera.getFocusDist(),
         1.0f,
         50.0f
-    );
-    ImGui::SliderFloat(
+    )) {
+        changed = true;
+    }
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderFloat(
         "Defocus Angle",
         &camera.getDefocusAngle(),
         0.0f,
         5.0f,
         "%.2f deg"
-    );
+    )) {
+        changed = true;
+    }
     ImGui::Spacing();
 
     ImGui::End();
@@ -132,11 +160,18 @@ void ImGuiLayer::build(RenderSettings& settings, Camera& camera) {
         ImGuiCond_Always,
         ImVec2(1.0f, 0.0f)
     );
+    ImGui::SetNextWindowSize(
+        ImVec2(200.0f, 100.0f),
+        ImGuiCond_Always
+    );
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
     ImGui::Begin("Stats", nullptr, flags);
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::Text("Frame Time: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+    ImGui::Text("Accumulated Frames: %u", accumulatedFrames);
     ImGui::End();
+
+    return changed;
 }
 
 void ImGuiLayer::render(VkCommandBuffer commandBuffer) {

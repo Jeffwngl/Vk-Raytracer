@@ -12,8 +12,11 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     this->scene = &scene;
     
     // use separate image view from swapchain to avoid platform specifics
-    createOutputImage();
-    createOutputImageView();
+    // createOutputImage();
+    // createOutputImageView();
+
+    createImages();
+    createImageViews();
 
     createSceneBuffer();
     createMaterialBuffer();
@@ -85,30 +88,46 @@ void Renderer::drawFrame(ImGuiLayer& imgui, RenderSettings& settings) {
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+uint32_t Renderer::getAccumulatedFrames() const {
+    return accumulatedFrames;
+}
+
+void Renderer::advanceAccumulatedFrames() {
+    accumulatedFrames++;
+};
+
+void Renderer::resetAccumulatedFrames() {
+    accumulatedFrames = 0;
+}
+
+void Renderer::createImages() {
+    createOutputImage();
+    createAccumulatedImage();
+}
+
+void Renderer::createImageViews() {
+    createOutputImageView();
+    createAccumulatedImageView();
+}
+
 void Renderer::createOutputImage() {
     VkImageCreateInfo imageCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = VK_FORMAT_R8G8B8A8_UNORM,
-
         .extent = {
             .width = static_cast<uint32_t>(vulkanCore->getWindowSize().x),
             .height = static_cast<uint32_t>(vulkanCore->getWindowSize().y),
             .depth = 1
         },
-
         .mipLevels = 1,
         .arrayLayers = 1,
-
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-
         .usage =
             VK_IMAGE_USAGE_STORAGE_BIT |
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
 
@@ -126,6 +145,40 @@ void Renderer::createOutputImage() {
     ));
 }
 
+void Renderer::createAccumulatedImage() {
+    VkImageCreateInfo imageCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+        .extent = {
+            .width = static_cast<uint32_t>(vulkanCore->getWindowSize().x),
+            .height = static_cast<uint32_t>(vulkanCore->getWindowSize().y),
+            .depth = 1
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage =
+            VK_IMAGE_USAGE_STORAGE_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+
+    VmaAllocationCreateInfo allocationCI{
+        .usage = VMA_MEMORY_USAGE_AUTO
+    };
+
+    utils::check(vmaCreateImage(
+        vulkanCore->getVmaAllocator(),
+        &imageCI,
+        &allocationCI,
+        &accumulatedImage,
+        &accumulatedImageAllocation,
+        nullptr
+    ));
+}
 
 void Renderer::createOutputImageView() {
     VkImageViewCreateInfo imageViewCI{
@@ -150,6 +203,28 @@ void Renderer::createOutputImageView() {
     ));
 }
 
+void Renderer::createAccumulatedImageView() {
+    VkImageViewCreateInfo imageViewCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = accumulatedImage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    utils::check(vkCreateImageView(
+        vulkanCore->getDevice().get(),
+        &imageViewCI,
+        nullptr,
+        &accumulatedImageView
+    ));
+}
 
 // TODO: change this to a general function creating sphere, vertex ... buffers
 void Renderer::createSceneBuffer() {
@@ -208,6 +283,7 @@ void Renderer::createComputeDescriptorSet() {
     computeDescriptorSet.initialize(
         *vulkanCore, 
         outputImageView,
+        accumulatedImageView,
         sceneObjectBuffer,
         materialBuffer
     );
@@ -292,6 +368,17 @@ void Renderer::recordCommandBuffers(
         outputImageInitialized = true;
     };
 
+    if (!accumulatedImageInitialized) {
+        transitionImage(
+            commandBuffer,
+            accumulatedImage,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL
+        );
+
+        accumulatedImageInitialized = true;
+    }
+
     vkCmdBindPipeline(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -318,6 +405,8 @@ void Renderer::recordCommandBuffers(
         .objectCnt = static_cast<uint32_t>(scene->getObjects().size()),
         .samplesPerPixel = settings.samplesPerPixel,
         .maxBounces = settings.maxBounces,
+        .accumulatedFrames = accumulatedFrames,
+        .accumulateRays = settings.accumulateRays
     };
 
     vkCmdPushConstants(
@@ -515,6 +604,27 @@ void Renderer::cleanUp() {
 
         outputImage = VK_NULL_HANDLE;
         outputImageAllocation = VK_NULL_HANDLE;
+    }
+
+    if (accumulatedImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(
+            vulkanCore->getDevice().get(),
+            accumulatedImageView,
+            nullptr
+        );
+
+        accumulatedImageView = VK_NULL_HANDLE;
+    }
+
+    if (accumulatedImage != VK_NULL_HANDLE) {
+        vmaDestroyImage(
+            vulkanCore->getVmaAllocator(),
+            accumulatedImage,
+            accumulatedImageAllocation
+        );
+
+        accumulatedImage = VK_NULL_HANDLE;
+        accumulatedImageAllocation = VK_NULL_HANDLE;
     }
 }
 

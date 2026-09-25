@@ -8,6 +8,7 @@ namespace Vulkan {
 void ComputeDescriptorSet::initialize(
     Vulkan::VulkanCore& vkCore, 
     VkImageView outputImageView, 
+    VkImageView accumulatedImageView,
     const Buffer& sceneObjectBuffer,
     const Buffer& materialBuffer
 ) {
@@ -15,7 +16,12 @@ void ComputeDescriptorSet::initialize(
 
     createDescriptorSetLayout();
     createDescriptorPool();
-    createDescriptorSet(outputImageView, sceneObjectBuffer, materialBuffer);
+    createDescriptorSet(
+        outputImageView, 
+        accumulatedImageView,
+        sceneObjectBuffer, 
+        materialBuffer
+    );
 }
 
 void ComputeDescriptorSet::createDescriptorSetLayout() {
@@ -26,22 +32,30 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    VkDescriptorSetLayoutBinding sceneBufferBinding{
+    VkDescriptorSetLayoutBinding accumulatedImageBinding{
         .binding = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    VkDescriptorSetLayoutBinding materialBufferBinding{
+    VkDescriptorSetLayoutBinding sceneBufferBinding{
         .binding = 2,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    std::array<VkDescriptorSetLayoutBinding, 3>bindings{
+    VkDescriptorSetLayoutBinding materialBufferBinding{
+        .binding = 3,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
+    };
+
+    std::array<VkDescriptorSetLayoutBinding, 4>bindings{
         outputImageBinding,
+        accumulatedImageBinding,
         sceneBufferBinding,
         materialBufferBinding
     };
@@ -64,7 +78,7 @@ void ComputeDescriptorSet::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 2> poolSizes{
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 1
+            .descriptorCount = 2
         },
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -89,6 +103,7 @@ void ComputeDescriptorSet::createDescriptorPool() {
 
 void ComputeDescriptorSet::createDescriptorSet(
     VkImageView outputImageView, 
+    VkImageView accumulatedImageView,
     const Buffer& sceneObjectBuffer, 
     const Buffer& materialBuffer
 ) {
@@ -105,9 +120,15 @@ void ComputeDescriptorSet::createDescriptorSet(
         &descriptorSet
     ));
 
-    VkDescriptorImageInfo imageInfo{
+    VkDescriptorImageInfo outputImageInfo{
         .sampler = VK_NULL_HANDLE,
         .imageView = outputImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+    };
+
+    VkDescriptorImageInfo accumualtedImageInfo{
+        .sampler = VK_NULL_HANDLE,
+        .imageView = accumulatedImageView,
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
@@ -130,13 +151,23 @@ void ComputeDescriptorSet::createDescriptorSet(
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        .pImageInfo = &imageInfo
+        .pImageInfo = &outputImageInfo
+    };
+
+    VkWriteDescriptorSet accumulatedImageWrite{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = 1,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        .pImageInfo = &accumualtedImageInfo
     };
 
     VkWriteDescriptorSet sceneObjectBufferWrite{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,
-        .dstBinding = 1,
+        .dstBinding = 2,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -146,15 +177,16 @@ void ComputeDescriptorSet::createDescriptorSet(
     VkWriteDescriptorSet materialBufferWrite{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,
-        .dstBinding = 2,
+        .dstBinding = 3,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .pBufferInfo = &materialBufferInfo
     };
 
-    std::array<VkWriteDescriptorSet, 3>writes{
+    std::array<VkWriteDescriptorSet, 4>writes{
         outputImageWrite,
+        accumulatedImageWrite,
         sceneObjectBufferWrite,
         materialBufferWrite
     };

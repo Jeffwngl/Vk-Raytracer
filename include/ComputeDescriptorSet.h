@@ -11,9 +11,11 @@ public:
     ComputeDescriptorSet() = default;
     ~ComputeDescriptorSet();
 
+    // TODO: group image views and buffers by structs
     void initialize(
         VulkanCore& vkCore, 
         VkImageView outputImageView, 
+        VkImageView accumulatedImageView,
         const Buffer& sceneObjectBuffer,
         const Buffer& materialBuffer
     );
@@ -21,6 +23,7 @@ public:
     void createDescriptorPool();
     void createDescriptorSet(
         VkImageView outputImageView, 
+        VkImageView accumualtedImageView,
         const Buffer& sceneObjectBuffer,
         const Buffer& materialBuffer
     );

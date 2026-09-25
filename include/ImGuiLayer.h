@@ -9,7 +9,11 @@ public:
     void initialize(Vulkan::VulkanCore& core);
     void processEvent(const SDL_Event& event);
     void beginFrame();
-    void build(RenderSettings& settings, Camera& camera);
+    bool build(
+        RenderSettings& settings, 
+        Camera& camera, 
+        uint32_t accumulatedFrames
+    );
     void render(VkCommandBuffer commandBuffer);
     void cleanUp();
 

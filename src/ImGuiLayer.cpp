@@ -97,14 +97,6 @@ bool ImGuiLayer::build(
     }
     ImGui::SetNextItemWidth(200.0f);
     ImGui::SliderScalar(
-        "Samples (Per Frame)",
-        ImGuiDataType_U32,
-        &settings.samplesPerFrame,
-        &sliderMin,
-        &sliderMax
-    );
-    ImGui::SetNextItemWidth(200.0f);
-    ImGui::SliderScalar(
         "Samples (Per Pixel)",
         ImGuiDataType_U32,
         &settings.samplesPerPixel,

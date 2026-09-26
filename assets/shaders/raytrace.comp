@@ -14,12 +14,14 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0, rgba8) uniform image2D outputImage;
 
-layout(std430, set = 0, binding = 1)
+layout(set = 0, binding = 1, rgba16f) uniform image2D accumulatedImage;
+
+layout(std430, set = 0, binding = 2)
 readonly buffer SphereBuffer {
     Sphere spheres[];
 };
 
-layout(std430, set = 0, binding = 2)
+layout(std430, set = 0, binding = 3)
 readonly buffer MaterialBuffer {
     Material materials[];
 };
@@ -36,6 +38,8 @@ layout(push_constant) uniform PushConstants {
     uint objectCnt;
     uint samplesPerPixel;
     uint maxBounces;
+    uint accumulatedFrames;
+    uint accumulateRays;
 } pc;
 
 bool hitGround(
@@ -74,7 +78,6 @@ bool hitGround(
 
     return true;
 }
-
 
 bool hitScene(
     Ray ray,
@@ -168,7 +171,7 @@ void main() {
     // random number generator state
     // a unique id per pixel is used as the seed.
     uint pixelIdx = uint(pixel.y * size.x + pixel.x);
-    uint rngState = tea(pixelIdx, 0u);
+    uint rngState = tea(pixelIdx, pc.accumulatedFrames);
 
     vec3 color = vec3(0.0);
 
@@ -186,7 +189,6 @@ void main() {
         Ray ray;
 
         // defocus blur
-        // vec3 lensOffset = vec3(0.0, 0.0, 0.0);
         vec2 diskSample = generateRandomInUnitDisk(rngState);
         vec3 lensOffset = 
             diskSample.x * pc.defocusDiskU.xyz +
@@ -200,9 +202,32 @@ void main() {
 
     color /= float(pc.samplesPerPixel);
 
-    color.x = linearToGamma(color.x);
-    color.y = linearToGamma(color.y);
-    color.z = linearToGamma(color.z);
+    vec3 displayColor = color;
 
-    imageStore(outputImage, pixel, vec4(color, 1.0));
+    // accumulate rays toggled on
+    if (pc.accumulateRays == 1u) {
+        if (pc.accumulatedFrames == 0u) {
+            imageStore(
+                accumulatedImage, 
+                pixel, 
+                vec4(color, 1.0)
+            );
+        }
+        else {
+            vec3 prev = imageLoad(accumulatedImage, pixel).rgb;
+            float n = float(pc.accumulatedFrames);
+            vec3 accumulatedColor = (prev * n + color) / (n + 1.0);
+            imageStore(
+                accumulatedImage, 
+                pixel, 
+                vec4(accumulatedColor, 1.0)
+            );
+            displayColor = accumulatedColor;
+        }   
+    }
+
+    // gamma correction
+    displayColor = linearToGamma(displayColor);
+
+    imageStore(outputImage, pixel, vec4(displayColor, 1.0));
 }

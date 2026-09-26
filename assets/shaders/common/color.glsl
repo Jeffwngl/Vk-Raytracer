@@ -7,13 +7,20 @@ vec3 skyColor(vec3 direction) {
     return mix(vec3(1.0), vec3(0.2, 0.45, 1.0), t);
 }
 
-
-float linearToGamma(float x) {
+float convertToGamma(float x) {
     if (x > 0.0) {
         return sqrt(x);
     }
 
     return 0.0;
+}
+
+vec3 linearToGamma(vec3 color) {
+    color.x = convertToGamma(color.x);
+    color.y = convertToGamma(color.y);
+    color.z = convertToGamma(color.z);
+
+    return color;
 }
 
 #endif

@@ -14,11 +14,9 @@ struct HitRecord {
     uint materialIndex;
 };
 
-
 vec3 rayAt(Ray ray, float t) {
     return ray.origin + t * ray.direction;
 }
-
 
 void setFaceNormal(
     Ray ray,

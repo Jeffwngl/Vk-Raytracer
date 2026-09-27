@@ -13,12 +13,4 @@ float randomFloat(float min = 0.0f, float max = 1.0f) {
     return distribution(generator);
 }
 
-glm::vec3 randomVec3(float min = 0.0f, float max = 1.0f) {
-    return {
-        randomFloat(min, max),
-        randomFloat(min, max),
-        randomFloat(min, max)
-    };
-}
-
 }

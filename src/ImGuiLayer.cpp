@@ -63,7 +63,8 @@ void ImGuiLayer::beginFrame() {
 bool ImGuiLayer::build(
     RenderSettings& settings, 
     Camera& camera, 
-    uint32_t accumulatedFrames
+    uint32_t accumulatedFrames,
+    Scene scene
 ) {
     bool changed = false;
     ImGuiIO& io = ImGui::GetIO();
@@ -86,7 +87,40 @@ bool ImGuiLayer::build(
 
     ImGui::Text("Scene");
     ImGui::Separator();
-    
+    const char* viewModes[] = {
+        "Default",
+        "Normals",
+        "BVH Depth",
+        "Bounding Boxes"
+    };
+    currMode = static_cast<int>(settings.viewMode);
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::Combo(
+        "Debug View",
+        &currMode,
+        viewModes,
+        IM_ARRAYSIZE(viewModes)
+    )) {
+        settings.viewMode = static_cast<ViewMode>(currMode);
+
+        changed = true;
+    }
+    ImGui::Spacing();
+
+    ImGui::Text("Bounding Boxes (In BVH mode only)");
+    ImGui::Separator();
+    uint32_t minNode = 0;
+    uint32_t maxNode = static_cast<uint32_t>(scene.getBVH().getNodes().size() - 1);
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderScalar(
+        "BVH Node",
+        ImGuiDataType_U32,
+        &settings.debugBVHNode,
+        &minNode,
+        &maxNode
+    )) {
+        changed = true;
+    }
     ImGui::Spacing();
 
     ImGui::Text("Ray tracing");
@@ -104,13 +138,15 @@ bool ImGuiLayer::build(
         &sliderMax
     );
     ImGui::SetNextItemWidth(200.0f);
-    ImGui::SliderScalar(
+    if (ImGui::SliderScalar(
         "Bounces",
         ImGuiDataType_U32,
         &settings.maxBounces,
         &sliderMin,
         &sliderMax
-    );
+    )) {
+        changed = true;
+    }
     ImGui::Spacing();
 
     ImGui::Text("Camera");
@@ -143,6 +179,13 @@ bool ImGuiLayer::build(
     )) {
         changed = true;
     }
+    ImGui::SetNextItemWidth(200.0f);
+    ImGui::SliderFloat(
+        "Camera Speed",
+        &camera.getSpeed(),
+        0.1f,
+        5.0f
+    );
     ImGui::Spacing();
 
     ImGui::End();

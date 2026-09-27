@@ -9,10 +9,15 @@ public:
     // default scene with spheres
     void Spheres();
 
+    void TriangleTest();
+
     void RayTracingInOneWeekend();
 
-    // to implement
-    void CornellBox();
+    void UtahTeapot();
+
+    void Suzanne();
+
+    void Igea();
 
     Scene& getScene() {
         return scene;
@@ -21,6 +26,9 @@ public:
     const Scene& getScene() const {
         return scene;
     }
+
+private:
+    void loadModel(std::string& path, const MaterialDefinition& materialDef);
 
 private:
     Scene scene{};

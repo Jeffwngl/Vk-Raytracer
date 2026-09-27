@@ -122,6 +122,10 @@ Mesh Scene::loadObj(const std::string& path) {
     return mesh;
 }
 
+void Scene::buildBVH() {
+    bvh.build(triangles);
+}
+
 glm::mat4 getTransformMatrix(const Transform& transform) {
     glm::mat4 translation = glm::translate(
         glm::mat4(1.0f),

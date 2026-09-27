@@ -1,34 +1,44 @@
+#include <iostream>
+
 #include "World.h"
 #include "Random.h"
 
-void World::Spheres() {
-    uint32_t whiteMaterial = scene.addMaterial(whiteDiffuse);
-    uint32_t silverMaterial = scene.addMaterial(silverMetal);
-    uint32_t redMaterial = scene.addMaterial(redDiffuse);
-    uint32_t glassMaterial = scene.addMaterial(glass);
+void World::loadModel(std::string& path, const MaterialDefinition& materialDef) {
 
-    scene.addSphere({
-        .centerRadius = glm::vec4(0.0f, 0.0f, -3.0f, 1.0f), // x, y, z, r
-        .materialIndex = silverMaterial,
-    });
+    std::cout << "Loading...\n";
 
-    scene.addSphere({
-        .centerRadius = glm::vec4(1.0f, 0.0f, -5.0f, 1.0f),
-        .materialIndex = whiteMaterial,
-    });
+    uint32_t material  = scene.addMaterial(materialDef);
+    uint32_t mesh = scene.addMesh(scene.loadObj(path));
 
-    scene.addSphere({
-        .centerRadius = glm::vec4(-1.4f, -0.5f, -2.0f, 0.5f),
-        .materialIndex = glassMaterial,
-    });
+    std::cout << "OBJ loaded\n";
 
-    scene.addSphere({
-        .centerRadius = glm::vec4(2.0f, -0.5f, -2.0f, 0.5f),
-        .materialIndex = redMaterial,
-    });
+    Object model {
+        .meshIndex = mesh,
+        .transform = {
+            .position = {0.0f, 0.0f, -3.0f},
+            .rotation = {},
+            .scale = {1.0f, 1.0f, 1.0f},
+        },
+        .materialIndex = material,
+    };
+
+    scene.addObject(model);
+
+    scene.buildTriangles();
+    scene.buildBVH();
+
+    std::cout
+    << "BVH built with "
+    << scene.getBVH().getNodes().size()
+    << " nodes\n";
+
+    std::cout
+        << "Triangles built: "
+        << scene.getTriangles().size()
+        << '\n';
 }
 
-void World::RayTracingInOneWeekend() {
+void World::Spheres() {
     uint32_t whiteMaterial  = scene.addMaterial(whiteDiffuse);
     uint32_t silverMaterial = scene.addMaterial(silverMetal);
     uint32_t redMaterial    = scene.addMaterial(redDiffuse);
@@ -92,4 +102,344 @@ void World::RayTracingInOneWeekend() {
         .centerRadius = glm::vec4(3.0f, 0.2f, -2.0f, 0.2f),
         .materialIndex = silverMaterial,
     });
+}
+
+void World::TriangleTest() {
+    uint32_t whiteMaterial = scene.addMaterial(whiteDiffuse);
+
+    Mesh mesh;
+
+    mesh.vertices = {
+        {
+            .position = {-1.0f, -0.75f, -3.0f, 1.0f},
+            .normal   = { 0.0f,  0.0f,   1.0f, 0.0f},
+            .uv       = {0.0f, 0.0f},
+        },
+        {
+            .position = { 1.0f, -0.75f, -3.0f, 1.0f},
+            .normal   = { 0.0f,  0.0f,   1.0f, 0.0f},
+            .uv       = {1.0f, 0.0f},
+        },
+        {
+            .position = { 0.0f,  1.0f,  -3.0f, 1.0f},
+            .normal   = { 0.0f,  0.0f,   1.0f, 0.0f},
+            .uv       = {0.5f, 1.0f},
+        }
+    };
+
+    mesh.indices = {
+        0, 1, 2
+    };
+
+    uint32_t meshIndex = scene.addMesh(std::move(mesh));
+
+    Object triangle{
+        .meshIndex = meshIndex,
+        .materialIndex = whiteMaterial,
+    };
+
+    scene.addObject(triangle);
+    scene.buildTriangles();
+
+    std::cout
+        << "Triangles: "
+        << scene.getTriangles().size()
+        << '\n';
+
+    Camera& camera = scene.getCamera();
+
+    camera.setPos({0.0f, 0.0f, 0.0f});
+    camera.setTarget({0.0f, 0.0f, -3.0f});
+    camera.setFov(45.0f);
+}
+
+void World::RayTracingInOneWeekend() {
+    // ---------------------------------------------------------
+    // Random helpers
+    // ---------------------------------------------------------
+
+    auto randomFloat = []() -> float {
+        return static_cast<float>(rand()) /
+               static_cast<float>(RAND_MAX);
+    };
+
+    auto randomFloatRange = [&](float min, float max) -> float {
+        return min + (max - min) * randomFloat();
+    };
+
+
+    // ---------------------------------------------------------
+    // Ground
+    // ---------------------------------------------------------
+
+    MaterialDefinition groundMaterial{
+        .color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f),
+        .params = glm::vec4(0.8f, 0.0f, 0.0f, 0.0f),
+        .type = static_cast<uint32_t>(
+            MaterialType::LAMBERTIAN
+        ),
+    };
+
+    uint32_t groundMaterialIndex =
+        scene.addMaterial(groundMaterial);
+
+    scene.addSphere({
+        .centerRadius =
+            glm::vec4(0.0f, -1000.0f, 0.0f, 1000.0f),
+
+        .materialIndex = groundMaterialIndex,
+    });
+
+
+    // ---------------------------------------------------------
+    // Random spheres
+    // ---------------------------------------------------------
+
+    for (int a = -11; a < 11; ++a) {
+        for (int b = -11; b < 11; ++b) {
+
+            float chooseMaterial = randomFloat();
+
+            glm::vec3 center{
+                static_cast<float>(a) + 0.9f * randomFloat(),
+                0.2f,
+                static_cast<float>(b) + 0.9f * randomFloat()
+            };
+
+            // Don't spawn small spheres too close to
+            // the large sphere at (4, 1, 0)
+            if (
+                glm::length(
+                    center - glm::vec3(4.0f, 0.2f, 0.0f)
+                ) <= 0.9f
+            ) {
+                continue;
+            }
+
+
+            // -------------------------------------------------
+            // Diffuse
+            // -------------------------------------------------
+
+            if (chooseMaterial < 0.8f) {
+
+                glm::vec3 randomColor1{
+                    randomFloat(),
+                    randomFloat(),
+                    randomFloat()
+                };
+
+                glm::vec3 randomColor2{
+                    randomFloat(),
+                    randomFloat(),
+                    randomFloat()
+                };
+
+                glm::vec3 albedo =
+                    randomColor1 * randomColor2;
+
+                MaterialDefinition material{
+                    .color = glm::vec4(albedo, 1.0f),
+
+                    .params = glm::vec4(0.8f, 0.0f, 0.0f, 0.0f),
+
+                    .type = static_cast<uint32_t>(
+                        MaterialType::LAMBERTIAN
+                    ),
+                };
+
+                uint32_t materialIndex =
+                    scene.addMaterial(material);
+
+                scene.addSphere({
+                    .centerRadius =
+                        glm::vec4(center, 0.2f),
+
+                    .materialIndex = materialIndex,
+                });
+            }
+
+
+            // -------------------------------------------------
+            // Metal
+            // -------------------------------------------------
+
+            else if (chooseMaterial < 0.95f) {
+
+                glm::vec3 albedo{
+                    randomFloatRange(0.5f, 1.0f),
+                    randomFloatRange(0.5f, 1.0f),
+                    randomFloatRange(0.5f, 1.0f)
+                };
+
+                float fuzz =
+                    randomFloatRange(0.0f, 0.5f);
+
+                MaterialDefinition material{
+                    .color = glm::vec4(albedo, 1.0f),
+
+                    // x = fuzz
+                    .params =
+                        glm::vec4(fuzz, 0.0f, 0.0f, 0.0f),
+
+                    .type = static_cast<uint32_t>(
+                        MaterialType::METAL
+                    ),
+                };
+
+                uint32_t materialIndex =
+                    scene.addMaterial(material);
+
+                scene.addSphere({
+                    .centerRadius =
+                        glm::vec4(center, 0.2f),
+
+                    .materialIndex = materialIndex,
+                });
+            }
+
+
+            // -------------------------------------------------
+            // Glass
+            // -------------------------------------------------
+
+            else {
+
+                MaterialDefinition material{
+                    .color =
+                        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+
+                    // x = index of refraction
+                    .params =
+                        glm::vec4(1.5f, 0.0f, 0.0f, 0.0f),
+
+                    .type = static_cast<uint32_t>(
+                        MaterialType::DIELECTRIC
+                    ),
+                };
+
+                uint32_t materialIndex =
+                    scene.addMaterial(material);
+
+                scene.addSphere({
+                    .centerRadius =
+                        glm::vec4(center, 0.2f),
+
+                    .materialIndex = materialIndex,
+                });
+            }
+        }
+    }
+
+
+    // ---------------------------------------------------------
+    // Main glass sphere
+    // ---------------------------------------------------------
+
+    MaterialDefinition material1{
+        .color =
+            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+
+        .params =
+            glm::vec4(1.5f, 0.0f, 0.0f, 0.0f),
+
+        .type = static_cast<uint32_t>(
+            MaterialType::DIELECTRIC
+        ),
+    };
+
+    uint32_t material1Index =
+        scene.addMaterial(material1);
+
+    scene.addSphere({
+        .centerRadius =
+            glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
+
+        .materialIndex = material1Index,
+    });
+
+
+    // ---------------------------------------------------------
+    // Main diffuse sphere
+    // ---------------------------------------------------------
+
+    MaterialDefinition material2{
+        .color =
+            glm::vec4(0.4f, 0.2f, 0.1f, 1.0f),
+
+        .params = glm::vec4(0.8f, 0.0f, 0.0f, 0.0f),
+
+        .type = static_cast<uint32_t>(
+            MaterialType::LAMBERTIAN
+        ),
+    };
+
+    uint32_t material2Index =
+        scene.addMaterial(material2);
+
+    scene.addSphere({
+        .centerRadius =
+            glm::vec4(-4.0f, 1.0f, 0.0f, 1.0f),
+
+        .materialIndex = material2Index,
+    });
+
+
+    // ---------------------------------------------------------
+    // Main metal sphere
+    // ---------------------------------------------------------
+
+    MaterialDefinition material3{
+        .color =
+            glm::vec4(0.7f, 0.6f, 0.5f, 1.0f),
+
+        .params =
+            glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+
+        .type = static_cast<uint32_t>(
+            MaterialType::METAL
+        ),
+    };
+
+    uint32_t material3Index =
+        scene.addMaterial(material3);
+
+    scene.addSphere({
+        .centerRadius =
+            glm::vec4(4.0f, 1.0f, 0.0f, 1.0f),
+
+        .materialIndex = material3Index,
+    });
+
+
+    // ---------------------------------------------------------
+    // Camera
+    // ---------------------------------------------------------
+
+    Camera& camera = scene.getCamera();
+
+    camera.setPos(
+        glm::vec3(13.0f, 2.0f, 3.0f)
+    );
+
+    camera.setTarget(
+        glm::vec3(0.0f, 0.0f, 0.0f)
+    );
+
+    camera.setFov(20.0f);
+}
+
+void World::UtahTeapot() {
+    std::string path = "assets/models/teapot.obj";
+    loadModel(path, whiteDiffuse);    
+}
+
+void World::Suzanne() {
+    std::string path = "assets/models/suzanne.obj";
+    loadModel(path, whiteDiffuse);    
+}
+
+void World::Igea() {
+    std::string path = "assets/models/igea.obj";
+    loadModel(path, whiteDiffuse);
 }

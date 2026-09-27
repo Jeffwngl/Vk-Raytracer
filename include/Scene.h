@@ -7,7 +7,11 @@
 #include <tiny_obj_loader.h>
 
 #include "Camera.h"
+#include "Geometry.h"
+#include "BVH.h"
 
+
+// TODO: move materials to separate file
 enum class MaterialType : uint32_t {
     LAMBERTIAN = 0,
     METAL = 1,
@@ -56,28 +60,6 @@ inline const MaterialDefinition glass {
 };
 
 
-struct Vertex {
-    glm::vec4 position;
-    glm::vec4 normal;
-    glm::vec2 uv;
-    glm::vec2 padding;
-};
-
-static_assert(sizeof(Vertex) == 48);
-
-
-struct alignas(16) Triangle {
-    Vertex v0;
-    Vertex v1;
-    Vertex v2;
-
-    uint32_t materialIndex{ 0 };
-    uint32_t padding[3]{};
-};
-
-static_assert(sizeof(Triangle) == 160);
-
-
 struct Mesh {
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -98,23 +80,6 @@ struct Object {
 };
 
 
-struct Sphere {
-    glm::vec4 centerRadius; // (x, y, z, r) 16 bytes
-    uint materialIndex{ 0 }; // 4 bytes
-    uint32_t padding[3]{}; // 12 bytes
-
-    glm::vec3 center() const {
-        return glm::vec3(centerRadius);
-    }
-
-    float radius() const {
-        return centerRadius.w;
-    }
-};
-
-static_assert(sizeof(Sphere) == 32);
-
-
 class Scene {
 public:
     void addSphere(const Sphere& sphere);
@@ -128,6 +93,8 @@ public:
     Mesh loadObj(const std::string& path);
 
     void buildTriangles();
+
+    void buildBVH();
 
     const std::vector<Sphere>& getSpheres() const {
         return spheres;
@@ -153,6 +120,10 @@ public:
         return camera;
     }
 
+    const BVH& getBVH() const {
+        return bvh;
+    }
+
     bool isDirty() const {
         return dirty;
     }
@@ -167,6 +138,8 @@ private:
     std::vector<Mesh> meshes;
     std::vector<Object> objects;
     std::vector<MaterialDefinition> materials;
+
+    BVH bvh;
 
     Camera camera;
 

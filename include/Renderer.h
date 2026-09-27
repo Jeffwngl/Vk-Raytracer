@@ -50,8 +50,12 @@ private:
     void createOutputImageView();
     void createAccumulatedImage();
     void createAccumulatedImageView();
-    void createSceneBuffer();
-    void createMaterialBuffer();
+    void createBuffers();
+    template<typename T>
+    void createStorageBuffer(
+        Vulkan::Buffer& buffer,
+        const std::vector<T>& data
+    );
     void createComputeDescriptorSet();
     void createComputePipeline(std::string& path);
 
@@ -74,7 +78,8 @@ private:
     Vulkan::ComputePipeline computePipeline{};
     Vulkan::ComputeDescriptorSet computeDescriptorSet{};
 
-    Vulkan::Buffer sceneObjectBuffer{};
+    Vulkan::Buffer sphereBuffer{};
+    Vulkan::Buffer triangleBuffer{};
     Vulkan::Buffer materialBuffer{};
     const Scene* scene{ nullptr };
 

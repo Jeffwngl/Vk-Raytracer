@@ -12,14 +12,10 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
     this->scene = &scene;
     
     // use separate image view from swapchain to avoid platform specifics
-    // createOutputImage();
-    // createOutputImageView();
-
     createImages();
     createImageViews();
 
-    createSceneBuffer();
-    createMaterialBuffer();
+    createBuffers();
     
     std::string path = "assets/shaders/raytrace.comp.spv";
 
@@ -226,57 +222,35 @@ void Renderer::createAccumulatedImageView() {
     ));
 }
 
-// TODO: change this to a general function creating sphere, vertex ... buffers
-void Renderer::createSceneBuffer() {
-    const std::vector<Sphere>& objects = scene->getObjects();
-
-    if (objects.empty()) {
-        throw std::runtime_error(
-            "Cannot create scene buffer: Scene contains no objects."
-        );
-    }
-
-    VkDeviceSize bufferSize = objects.size() * sizeof(Sphere);
-
-    sceneObjectBuffer.initialize(
-        vulkanCore->getVmaAllocator(),
-        bufferSize,
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        VMA_MEMORY_USAGE_AUTO,
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | 
-        VMA_ALLOCATION_CREATE_MAPPED_BIT
-    );
-
-    sceneObjectBuffer.upload(
-        objects.data(),
-        bufferSize
-    );
+void Renderer::createBuffers() {
+    createStorageBuffer(sphereBuffer, scene->getSpheres());
+    createStorageBuffer(triangleBuffer, scene->getTriangles());
+    createStorageBuffer(materialBuffer, scene->getMaterials());
 }
 
-void Renderer::createMaterialBuffer() {
-    const std::vector<MaterialDefinition>& materials = scene->getMaterials();
+template<typename T>
+void Renderer::createStorageBuffer(
+    Vulkan::Buffer& buffer,
+    const std::vector<T>& data
+) {
+    VkDeviceSize bufferSize = data.empty() ? sizeof(T) : data.size() * sizeof(T);
 
-    if (materials.empty()) {
-        throw std::runtime_error(
-            "Cannot create scene buffer: Scene contains no materials."
-        );
-    }
-
-    VkDeviceSize bufferSize = materials.size() * sizeof(MaterialDefinition);
-
-    materialBuffer.initialize(
+    buffer.initialize(
         vulkanCore->getVmaAllocator(),
         bufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         VMA_MEMORY_USAGE_AUTO,
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | 
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
         VMA_ALLOCATION_CREATE_MAPPED_BIT
     );
 
-    materialBuffer.upload(
-        materials.data(),
-        bufferSize
-    );
+
+    if (!data.empty()) {
+        buffer.upload(
+            data.data(),
+            bufferSize
+        );
+    }
 }
 
 void Renderer::createComputeDescriptorSet() {
@@ -284,7 +258,8 @@ void Renderer::createComputeDescriptorSet() {
         *vulkanCore, 
         outputImageView,
         accumulatedImageView,
-        sceneObjectBuffer,
+        sphereBuffer,
+        triangleBuffer,
         materialBuffer
     );
 }
@@ -402,7 +377,8 @@ void Renderer::recordCommandBuffers(
 
     Vulkan::PushConstants pc{
         .camera = camera.getGPUData(width, height),
-        .objectCnt = static_cast<uint32_t>(scene->getObjects().size()),
+        .sphereCnt = static_cast<uint32_t>(scene->getSpheres().size()),
+        .triangleCnt = static_cast<uint32_t>(scene->getTriangles().size()),
         .samplesPerPixel = settings.samplesPerPixel,
         .maxBounces = settings.maxBounces,
         .accumulatedFrames = accumulatedFrames,

@@ -6,6 +6,8 @@
 #include "common/random.glsl"
 #include "common/ray.glsl"
 #include "common/sphere.glsl"
+#include "common/triangle.glsl"
+#include "common/bvh.glsl"
 #include "common/color.glsl"
 #include "common/sampling.glsl"
 #include "common/material.glsl"
@@ -22,8 +24,18 @@ readonly buffer SphereBuffer {
 };
 
 layout(std430, set = 0, binding = 3)
+readonly buffer TriangleBuffer {
+    Triangle triangles[];
+};
+
+layout(std430, set = 0, binding = 4)
 readonly buffer MaterialBuffer {
     Material materials[];
+};
+
+layout(std430, set = 0, binding = 5)
+readonly buffer BvhBuffer {
+    BVHNode nodes[];
 };
 
 layout(push_constant) uniform PushConstants {
@@ -35,12 +47,16 @@ layout(push_constant) uniform PushConstants {
     vec4 defocusDiskU;
     vec4 defocusDiskV;
 
-    uint objectCnt;
+    uint sphereCnt;
+    uint triangleCnt;
     uint samplesPerPixel;
     uint maxBounces;
     uint accumulatedFrames;
     uint accumulateRays;
+    uint viewMode;
 } pc;
+
+const float FLOAT_MAX = 3.402823466e+38;
 
 bool hitGround(
     Ray ray,
@@ -84,12 +100,22 @@ bool hitScene(
     out HitRecord closestHit
 ) {
     bool hitAnything = false;
-    float closestT = 1.0 / 0.0;
+    float closestT = FLOAT_MAX;
 
-    for (uint i = 0; i < pc.objectCnt; ++i) {
+    for (uint i = 0; i < pc.sphereCnt; ++i) {
         HitRecord temp;
 
         if (hitSphere(ray, spheres[i], 0.001, closestT, temp)) {
+            hitAnything = true;
+            closestT = temp.t;
+            closestHit = temp;
+        }
+    }
+
+    for (uint i = 0; i < pc.triangleCnt; ++i) {
+        HitRecord temp;
+
+        if (hitTriangleMoller(ray, triangles[i], 0.001, closestT, temp)) {
             hitAnything = true;
             closestT = temp.t;
             closestHit = temp;
@@ -114,17 +140,15 @@ bool hitScene(
     return hitAnything;
 }
 
-/**
-* takes a ray plus RNG state and follows the ray through the scene
-* as it bounces, returns the RGB contribution of the whole path.
-*/
+// takes a ray plus RNG state and follows the ray through the scene
+// as it bounces, returns the RGB contribution of the whole path.
 vec3 rayColor(
     Ray ray,
     inout uint rngState
 ) {
     vec3 throughput = vec3(1.0);
 
-    for (int bounce = 0; bounce < pc.maxBounces; ++bounce) {
+    for (uint bounce = 0; bounce < pc.maxBounces; ++bounce) {
         HitRecord rec;
 
         if (hitScene(ray, rec)) {
@@ -197,7 +221,22 @@ void main() {
         ray.origin = pc.cameraPosition.xyz + lensOffset;
         ray.direction = normalize(pixelPosition - ray.origin);
 
-        color += rayColor(ray, rngState);
+        // surface normal view toggled on
+        if (pc.viewMode == 1u) {
+            HitRecord rec;
+
+            if (hitScene(ray, rec)) {
+                color += rec.normal * 0.5 + 0.5;
+            }
+            else {
+                color += skyColor(ray.direction);
+            }
+        }
+        else {
+            color += rayColor(ray, rngState);
+        }  
+
+        // color += rayColor(ray, rngState);
     }
 
     color /= float(pc.samplesPerPixel);

@@ -4,6 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <vector>
 #include <cstdint>
+#include <tiny_obj_loader.h>
 
 #include "Camera.h"
 
@@ -27,6 +28,8 @@ struct MaterialDefinition {
     uint32_t type; // 4 bytes
     uint32_t padding[3]{}; // 12 bytes
 };
+
+static_assert(sizeof(MaterialDefinition) == 48);
 
 inline const MaterialDefinition whiteDiffuse {
     .color = glm::vec4{1.0f},
@@ -54,10 +57,25 @@ inline const MaterialDefinition glass {
 
 
 struct Vertex {
-    glm::vec3 position;
-    glm::vec3 normal;
+    glm::vec4 position;
+    glm::vec4 normal;
     glm::vec2 uv;
+    glm::vec2 padding;
 };
+
+static_assert(sizeof(Vertex) == 48);
+
+
+struct alignas(16) Triangle {
+    Vertex v0;
+    Vertex v1;
+    Vertex v2;
+
+    uint32_t materialIndex{ 0 };
+    uint32_t padding[3]{};
+};
+
+static_assert(sizeof(Triangle) == 160);
 
 
 struct Mesh {
@@ -74,7 +92,7 @@ struct Transform {
 
 
 struct Object {
-    Mesh* mesh{ nullptr };
+    uint32_t meshIndex{ 0 };
     Transform transform;
     uint materialIndex{ 0 };
 };
@@ -94,23 +112,33 @@ struct Sphere {
     }
 };
 
+static_assert(sizeof(Sphere) == 32);
+
 
 class Scene {
 public:
-    void addSphere(const Sphere& sphere) {
-        spheres.push_back(sphere);
-        dirty = true;
+    void addSphere(const Sphere& sphere);
+
+    void addObject(const Object& object);
+
+    uint32_t addMesh(Mesh mesh);
+
+    uint32_t addMaterial(const MaterialDefinition& material);
+
+    Mesh loadObj(const std::string& path);
+
+    void buildTriangles();
+
+    const std::vector<Sphere>& getSpheres() const {
+        return spheres;
     }
 
-    uint32_t addMaterial(const MaterialDefinition& material) {
-        materials.push_back(material);
-        dirty = true;
-
-        return static_cast<uint32_t>(materials.size() - 1);
+    const std::vector<Triangle>& getTriangles() const {
+        return triangles;
     }
 
-    const std::vector<Sphere>& getObjects() const {
-        return spheres; // TODO: change to a general type later, use below functions
+    const std::vector<Mesh>& getMeshes() const {
+        return meshes;
     }
 
     const std::vector<MaterialDefinition>& getMaterials() const {
@@ -135,8 +163,7 @@ public:
 
 private:
     std::vector<Sphere> spheres;
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    std::vector<Triangle> triangles;
     std::vector<Mesh> meshes;
     std::vector<Object> objects;
     std::vector<MaterialDefinition> materials;

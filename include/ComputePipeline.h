@@ -15,7 +15,8 @@ struct alignas(16) PushConstants {
     GPUData camera;
 
     // TODO: move below to independent struct
-    uint32_t objectCnt;
+    uint32_t sphereCnt;
+    uint32_t triangleCnt;
     uint32_t samplesPerPixel = 8;
     uint32_t maxBounces = 8;
     uint32_t accumulatedFrames = 0;

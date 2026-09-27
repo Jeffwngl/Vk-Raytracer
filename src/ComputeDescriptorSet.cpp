@@ -9,7 +9,8 @@ void ComputeDescriptorSet::initialize(
     Vulkan::VulkanCore& vkCore, 
     VkImageView outputImageView, 
     VkImageView accumulatedImageView,
-    const Buffer& sceneObjectBuffer,
+    const Buffer& sphereObjectBuffer,
+    const Buffer& triangleObjectBuffer,
     const Buffer& materialBuffer
 ) {
     vulkanCore = &vkCore;
@@ -19,7 +20,8 @@ void ComputeDescriptorSet::initialize(
     createDescriptorSet(
         outputImageView, 
         accumulatedImageView,
-        sceneObjectBuffer, 
+        sphereObjectBuffer, 
+        triangleObjectBuffer,
         materialBuffer
     );
 }
@@ -39,24 +41,34 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    VkDescriptorSetLayoutBinding sceneBufferBinding{
+    VkDescriptorSetLayoutBinding sphereBufferBinding{
         .binding = 2,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    VkDescriptorSetLayoutBinding materialBufferBinding{
+
+    VkDescriptorSetLayoutBinding triangleBufferBinding{
         .binding = 3,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
     };
 
-    std::array<VkDescriptorSetLayoutBinding, 4>bindings{
+
+    VkDescriptorSetLayoutBinding materialBufferBinding{
+        .binding = 4,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT
+    };
+
+    std::array<VkDescriptorSetLayoutBinding, 5>bindings{
         outputImageBinding,
         accumulatedImageBinding,
-        sceneBufferBinding,
+        sphereBufferBinding,
+        triangleBufferBinding,
         materialBufferBinding
     };
 
@@ -82,7 +94,7 @@ void ComputeDescriptorSet::createDescriptorPool() {
         },
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 2
+            .descriptorCount = 3
         }
     };
 
@@ -104,7 +116,8 @@ void ComputeDescriptorSet::createDescriptorPool() {
 void ComputeDescriptorSet::createDescriptorSet(
     VkImageView outputImageView, 
     VkImageView accumulatedImageView,
-    const Buffer& sceneObjectBuffer, 
+    const Buffer& sphereObjectBuffer, 
+    const Buffer& triangleObjectBuffer,
     const Buffer& materialBuffer
 ) {
     VkDescriptorSetAllocateInfo allocInfo{
@@ -132,10 +145,16 @@ void ComputeDescriptorSet::createDescriptorSet(
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL
     };
 
-    VkDescriptorBufferInfo sceneBufferInfo{
-        .buffer = sceneObjectBuffer.get(),
+    VkDescriptorBufferInfo sphereBufferInfo{
+        .buffer = sphereObjectBuffer.get(),
         .offset = 0,
-        .range = sceneObjectBuffer.getSize()
+        .range = sphereObjectBuffer.getSize()
+    };
+
+    VkDescriptorBufferInfo triangleBufferInfo{
+        .buffer = triangleObjectBuffer.get(),
+        .offset = 0,
+        .range = triangleObjectBuffer.getSize()
     };
 
     VkDescriptorBufferInfo materialBufferInfo{
@@ -164,30 +183,41 @@ void ComputeDescriptorSet::createDescriptorSet(
         .pImageInfo = &accumualtedImageInfo
     };
 
-    VkWriteDescriptorSet sceneObjectBufferWrite{
+    VkWriteDescriptorSet sphereObjectBufferWrite{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,
         .dstBinding = 2,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .pBufferInfo = &sceneBufferInfo
+        .pBufferInfo = &sphereBufferInfo
     };
 
-    VkWriteDescriptorSet materialBufferWrite{
+    VkWriteDescriptorSet triangleObjectBufferWrite{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstSet = descriptorSet,
         .dstBinding = 3,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .pBufferInfo = &triangleBufferInfo
+    };
+
+    VkWriteDescriptorSet materialBufferWrite{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = descriptorSet,
+        .dstBinding = 4,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         .pBufferInfo = &materialBufferInfo
     };
 
-    std::array<VkWriteDescriptorSet, 4>writes{
+    std::array<VkWriteDescriptorSet, 5>writes{
         outputImageWrite,
         accumulatedImageWrite,
-        sceneObjectBufferWrite,
+        sphereObjectBufferWrite,
+        triangleObjectBufferWrite,
         materialBufferWrite
     };
 

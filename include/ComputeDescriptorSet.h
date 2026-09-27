@@ -16,15 +16,17 @@ public:
         VulkanCore& vkCore, 
         VkImageView outputImageView, 
         VkImageView accumulatedImageView,
-        const Buffer& sceneObjectBuffer,
+        const Buffer& sphereObjectBuffer,
+        const Buffer& triangleObjectBuffer,
         const Buffer& materialBuffer
     );
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSet(
         VkImageView outputImageView, 
-        VkImageView accumualtedImageView,
-        const Buffer& sceneObjectBuffer,
+        VkImageView accumulatedImageView,
+        const Buffer& sphereObjectBuffer,
+        const Buffer& triangleObjectBuffer,
         const Buffer& materialBuffer
     );
     void cleanup();

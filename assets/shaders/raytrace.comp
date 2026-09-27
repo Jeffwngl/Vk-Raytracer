@@ -54,9 +54,96 @@ layout(push_constant) uniform PushConstants {
     uint accumulatedFrames;
     uint accumulateRays;
     uint viewMode;
+    uint debugBVHNode; // TODO: remove this
 } pc;
 
 const float FLOAT_MAX = 3.402823466e+38;
+
+vec3 debugBoundingBox(Ray ray) {
+    BVHNode node = nodes[pc.debugBVHNode];
+
+    float tNear;
+
+    if (hitAABB(
+        ray,
+        node.boundsMin,
+        node.boundsMax,
+        0.001,
+        FLOAT_MAX,
+        tNear
+    )) {
+        return vec3(1.0, 0.2, 0.2);
+    }
+
+    return skyColor(ray.direction);
+}
+
+bool hitBVH(
+    Ray ray,
+    float tMin,
+    float tMax,
+    out HitRecord closestHit
+) {
+    bool hitAnything = false;
+    float closestT = tMax;
+ 
+    uint stack[MAX_DEPTH]; // max depth is 64
+    uint stackPtr = 0;
+
+    // root node
+    stack[stackPtr++] = 0;
+
+    while (stackPtr > 0) {
+        uint nodeIndex = stack[--stackPtr];
+
+        BVHNode node = nodes[nodeIndex];
+
+        float tNear;
+
+        // ray misses this whole section of geometry
+        if (!hitAABB(
+            ray,
+            node.boundsMin,
+            node.boundsMax,
+            tMin,
+            closestT,
+            tNear
+        )) {
+            continue;
+        }
+
+        // leaf node
+        if (node.triangleCount > 0) {
+
+            for (uint i = 0; i < node.triangleCount; ++i) {
+                uint triangleIndex = node.firstTriangle + i;
+
+                HitRecord temp;
+
+                if (hitTriangleMoller(
+                        ray,
+                        triangles[triangleIndex],
+                        tMin,
+                        closestT,
+                        temp
+                    )
+                ) {
+                    hitAnything = true;
+                    closestT = temp.t;
+                    closestHit = temp;
+                }
+            }
+        }
+
+        // Internal node
+        else {
+            stack[stackPtr++] = node.leftChild;
+            stack[stackPtr++] = node.rightChild;
+        }
+    }
+
+    return hitAnything;
+}
 
 bool hitGround(
     Ray ray,
@@ -102,6 +189,7 @@ bool hitScene(
     bool hitAnything = false;
     float closestT = FLOAT_MAX;
 
+    // spheres
     for (uint i = 0; i < pc.sphereCnt; ++i) {
         HitRecord temp;
 
@@ -112,16 +200,32 @@ bool hitScene(
         }
     }
 
-    for (uint i = 0; i < pc.triangleCnt; ++i) {
-        HitRecord temp;
+    // triangles
+    HitRecord triangleHit;
 
-        if (hitTriangleMoller(ray, triangles[i], 0.001, closestT, temp)) {
-            hitAnything = true;
-            closestT = temp.t;
-            closestHit = temp;
-        }
+    if (
+        hitBVH(
+            ray,
+            0.001,
+            closestT,
+            triangleHit
+        )
+    ) {
+        hitAnything = true;
+        closestT = triangleHit.t;
+        closestHit = triangleHit;
     }
+    // for (uint i = 0; i < pc.triangleCnt; ++i) {
+    //     HitRecord temp;
 
+    //     if (hitTriangleMoller(ray, triangles[i], 0.001, closestT, temp)) {
+    //         hitAnything = true;
+    //         closestT = temp.t;
+    //         closestHit = temp;
+    //     }
+    // }
+
+    // ground
     HitRecord groundHit;
 
     if (
@@ -231,12 +335,20 @@ void main() {
             else {
                 color += skyColor(ray.direction);
             }
+        } // TODO: remove all this and add to a separate debug rasterizer pipeline
+        else if (pc.viewMode == 2u) { // show bounding volume
+            HitRecord rec;
+
+            if (hitScene(ray, rec)) {
+                color += rec.normal * 0.5 + 0.5;
+            }
+        }
+        else if (pc.viewMode == 3u) {
+            color += debugBoundingBox(ray);
         }
         else {
             color += rayColor(ray, rngState);
-        }  
-
-        // color += rayColor(ray, rngState);
+        }
     }
 
     color /= float(pc.samplesPerPixel);

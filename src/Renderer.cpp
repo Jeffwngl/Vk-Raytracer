@@ -226,6 +226,7 @@ void Renderer::createBuffers() {
     createStorageBuffer(sphereBuffer, scene->getSpheres());
     createStorageBuffer(triangleBuffer, scene->getTriangles());
     createStorageBuffer(materialBuffer, scene->getMaterials());
+    createStorageBuffer(bvhBuffer, scene->getBVH().getNodes());
 }
 
 template<typename T>
@@ -260,7 +261,8 @@ void Renderer::createComputeDescriptorSet() {
         accumulatedImageView,
         sphereBuffer,
         triangleBuffer,
-        materialBuffer
+        materialBuffer,
+        bvhBuffer
     );
 }
 
@@ -382,7 +384,9 @@ void Renderer::recordCommandBuffers(
         .samplesPerPixel = settings.samplesPerPixel,
         .maxBounces = settings.maxBounces,
         .accumulatedFrames = accumulatedFrames,
-        .accumulateRays = settings.accumulateRays
+        .accumulateRays = settings.accumulateRays,
+        .viewMode = static_cast<uint32_t>(settings.viewMode),
+        .debugBVHNode = settings.debugBVHNode
     };
 
     vkCmdPushConstants(

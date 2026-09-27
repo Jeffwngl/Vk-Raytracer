@@ -7,6 +7,7 @@
 #include "Scene.h"
 #include "ImGuiLayer.h"
 #include "RenderSettings.h"
+#include "BVH.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -81,6 +82,7 @@ private:
     Vulkan::Buffer sphereBuffer{};
     Vulkan::Buffer triangleBuffer{};
     Vulkan::Buffer materialBuffer{};
+    Vulkan::Buffer bvhBuffer{};
     const Scene* scene{ nullptr };
 
     VkImage outputImage{ VK_NULL_HANDLE };

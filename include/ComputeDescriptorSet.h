@@ -18,7 +18,8 @@ public:
         VkImageView accumulatedImageView,
         const Buffer& sphereObjectBuffer,
         const Buffer& triangleObjectBuffer,
-        const Buffer& materialBuffer
+        const Buffer& materialBuffer,
+        const Buffer& bvhBuffer
     );
     void createDescriptorSetLayout();
     void createDescriptorPool();
@@ -27,7 +28,8 @@ public:
         VkImageView accumulatedImageView,
         const Buffer& sphereObjectBuffer,
         const Buffer& triangleObjectBuffer,
-        const Buffer& materialBuffer
+        const Buffer& materialBuffer,
+        const Buffer& bvhBuffer
     );
     void cleanup();
     

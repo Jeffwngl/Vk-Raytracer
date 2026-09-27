@@ -25,6 +25,7 @@ public:
     void setPos(const glm::vec3& pos);
     void setTarget(const glm::vec3& target);
     void setFov(float fov);
+    void setSpeed(float speed);
 
     const glm::vec3 getPos() const;
     const glm::vec3 getTarget() const;
@@ -35,6 +36,9 @@ public:
     float& getDefocusAngle();
     glm::vec3 getDefocusDiskU();
     glm::vec3 getDefocusDiskV();
+
+    float& getSpeed();
+    float getSpeed() const;
 
     void moveForward(float amount);
     void moveRight(float amount);
@@ -56,4 +60,5 @@ private:
 
     float defocusAngle{ 0.5f };
     float focusDist{ 10.0f }; // distance from camera to perfect focus
+    float speed{ 3.0f };
 };

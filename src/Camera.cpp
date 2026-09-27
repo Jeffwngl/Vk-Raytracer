@@ -23,6 +23,10 @@ void Camera::setTarget(const glm::vec3& target) {
     this->target = target;
 }
 
+void Camera::setSpeed(float speed) {
+    this->speed = speed;
+}
+
 void Camera::setFov(float fov) {
     this->fov = fov;
 }
@@ -49,6 +53,14 @@ float& Camera::getFocusDist() {
 
 float& Camera::getDefocusAngle() {
     return this->defocusAngle;
+}
+
+float& Camera::getSpeed() {
+    return this->speed;
+}
+
+float Camera::getSpeed() const {
+    return this->speed;
 }
 
 void Camera::moveForward(float amount) {
@@ -116,8 +128,6 @@ GPUData Camera::getGPUData(
 
     const float theta = glm::radians(fov);
     const float h = glm::tan(theta / 2.0f);
-
-    // const float focalLength = glm::length(pos - target);
 
     const float viewportHeight = 2.0f * h * focusDist;
 

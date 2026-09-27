@@ -10,7 +10,7 @@ bool Application::initialize() {
     };
 
     // initialize scene
-    world.RayTracingInOneWeekend();
+    world.Igea();
 
     if (!renderer.initialize(vulkanCore, world.getScene())) {
         return false;
@@ -38,12 +38,21 @@ void Application::run() {
 
         imgui.beginFrame();
 
-        imgui.build(
+        // imgui.build() returns true if variables have been modified
+        if (imgui.build(
             renderSettings,
-            camera
-        );
+            camera,
+            renderer.getAccumulatedFrames(),
+            world.getScene()
+        )) {
+            renderer.resetAccumulatedFrames();
+        }
 
         renderer.drawFrame(imgui, renderSettings);
+
+        if (renderSettings.accumulateRays == 1u) {
+            renderer.advanceAccumulatedFrames();
+        }
     }
 }
 
@@ -96,6 +105,8 @@ void Application::handleInput(Camera& camera) {
 
             case SDL_EVENT_MOUSE_MOTION:
                 if (cameraMouseEnabled) {
+                    renderer.resetAccumulatedFrames();
+
                     camera.yaw(
                         event.motion.xrel * sensitivity
                     );
@@ -115,32 +126,41 @@ void Application::handleInput(Camera& camera) {
 }
 
 void Application::moveCamera() {
-    float speed = 3.0f;
-
     Camera& camera = world.getScene().getCamera();
+    float speed = camera.getSpeed();
+
+    bool cameraMoved = false;
 
     if (moveForward) {
         camera.moveForward(
             speed * static_cast<float>(deltaTime)
         );
+        cameraMoved = true;
     }
 
     if (moveBackward) {
         camera.moveForward(
             -speed * static_cast<float>(deltaTime)
         );
+        cameraMoved = true;
     }
 
     if (moveRight) {
         camera.moveRight(
             speed * static_cast<float>(deltaTime)
         );
+        cameraMoved = true;
     }
 
     if (moveLeft) {
         camera.moveRight(
             -speed * static_cast<float>(deltaTime)
         );
+        cameraMoved = true;
+    }
+
+    if (cameraMoved) {
+        renderer.resetAccumulatedFrames();
     }
 }
 

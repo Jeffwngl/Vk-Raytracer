@@ -12,6 +12,7 @@ public:
     void beginFrame();
     bool build(
         RenderSettings& settings, 
+        DebugSettings& debug,
         Camera& camera, 
         uint32_t accumulatedFrames,
         Scene scene

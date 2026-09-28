@@ -22,7 +22,6 @@ public:
         const Buffer& bvhBuffer
     );
     void createDescriptorSetLayout();
-    void createDescriptorPool();
     void createDescriptorSet(
         VkImageView outputImageView, 
         VkImageView accumulatedImageView,
@@ -34,7 +33,6 @@ public:
     void cleanup();
     
     VkDescriptorSet getDescriptorSet() const;
-    VkDescriptorPool getDescriptorPool() const;
     VkDescriptorSetLayout getDescriptorSetLayout() const;
 
 private:
@@ -42,7 +40,6 @@ private:
 
     VkDescriptorSet descriptorSet{ VK_NULL_HANDLE };
     VkDescriptorSetLayout descriptorSetLayout{ VK_NULL_HANDLE };
-    VkDescriptorPool descriptorPool{ VK_NULL_HANDLE };
 };
 
 }

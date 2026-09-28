@@ -17,15 +17,21 @@ bool Renderer::initialize(Vulkan::VulkanCore& vkCore, const Scene& scene) {
 
     createBuffers();
     
-    std::string path = "assets/shaders/raytrace.comp.spv";
+    std::string raytracePath = "assets/shaders/raytrace.comp.spv";
+    std::string vertPath = "assets/shaders/vert.comp.spv";
+    std::string fragPath = "assets/shaders/frag.comp.spv";
 
     createComputeDescriptorSet();
-    createComputePipeline(path);
+    createComputePipeline(raytracePath);
+
+    createGraphicsDescriptorSet();
+    createGraphicsPipelineLayout();
+    createGraphicsPipeline(vertPath, fragPath);
 
     return true;
 }
 
-void Renderer::drawFrame(ImGuiLayer& imgui, RenderSettings& settings) {
+void Renderer::drawFrame(ImGuiLayer& imgui, RenderSettings& settings, DebugSettings& debug) {
     Vulkan::FrameData& frame = vulkanCore->getFrameData(currentFrame);
 
     VkDevice device = vulkanCore->getDevice().get();
@@ -53,7 +59,8 @@ void Renderer::drawFrame(ImGuiLayer& imgui, RenderSettings& settings) {
         frame.computeCommandBuffer,
         imageIndex,
         imgui,
-        settings
+        settings,
+        debug
     );
 
     // 5. Submit 
@@ -245,7 +252,6 @@ void Renderer::createStorageBuffer(
         VMA_ALLOCATION_CREATE_MAPPED_BIT
     );
 
-
     if (!data.empty()) {
         buffer.upload(
             data.data(),
@@ -271,6 +277,58 @@ void Renderer::createComputePipeline(std::string& path) {
         *vulkanCore, 
         path, 
         computeDescriptorSet.getDescriptorSetLayout()
+    );
+}
+
+void Renderer::createGraphicsDescriptorSet() {
+    graphicsDescriptorSet.initialize(
+        *vulkanCore,
+        triangleBuffer
+    );
+}
+
+void Renderer::createGraphicsPipelineLayout() {
+    VkDescriptorSetLayout setLayout = graphicsDescriptorSet.getDescriptorSetLayout();
+
+    VkPushConstantRange pushConstantRange{
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .offset = 0,
+        .size = sizeof(Vulkan::GraphicsPushConstants)
+    };
+
+    VkPipelineLayoutCreateInfo layoutCI{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &setLayout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &pushConstantRange
+    };
+
+    utils::check(
+        vkCreatePipelineLayout(
+            vulkanCore->getDevice().get(),
+            &layoutCI,
+            nullptr,
+            &graphicsPipelineLayout
+        )
+    );
+}
+
+void Renderer::createGraphicsPipeline(
+    std::string& vertFilePath, 
+    std::string& fragFilePath
+) {
+    PipelineConfigInfo config = graphicsPipeline.defaultPipelineConfigInfo();
+
+    config.pipelineLayout = graphicsPipelineLayout;
+    config.colorFormat = vulkanCore->getSwapchain().getFormat();
+    config.depthFormat = VK_FORMAT_UNDEFINED;
+
+    graphicsPipeline.initialize(
+        vulkanCore->getDevice().get(),
+        "assets/shaders/debug.vert.spv",
+        "assets/shaders/debug.frag.spv",
+        config
     );
 }
 
@@ -321,7 +379,8 @@ void Renderer::recordCommandBuffers(
     VkCommandBuffer commandBuffer, 
     uint32_t imageIndex,
     ImGuiLayer& imgui,
-    RenderSettings& settings
+    RenderSettings& settings,
+    DebugSettings& debug
 ) {
     VkCommandBufferBeginInfo beginInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
@@ -333,6 +392,51 @@ void Renderer::recordCommandBuffers(
 
     uint32_t width = static_cast<uint32_t>(vulkanCore->getWindowSize().x);
     uint32_t height = static_cast<uint32_t>(vulkanCore->getWindowSize().y);
+
+    if (debug.viewMode == ViewMode::Raytrace) {
+        recordRaytraceCommands(
+            commandBuffer,
+            imageIndex,
+            settings,
+            debug,
+            width,
+            height,
+            imgui
+        );
+    }
+    else {
+        recordDebugCommands(
+            commandBuffer,
+            imageIndex,
+            settings,
+            debug,
+            width,
+            height,
+            imgui
+        );
+    }
+
+    // prepare for vkQueuePresentKHR
+    transitionImage(
+        commandBuffer,
+        swapchainImage,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    );
+
+    utils::check(vkEndCommandBuffer(commandBuffer));
+}
+
+void Renderer::recordRaytraceCommands(
+    VkCommandBuffer commandBuffer,
+    uint32_t imageIndex,
+    RenderSettings& settings,
+    DebugSettings& debug,
+    uint32_t width,
+    uint32_t height,
+    ImGuiLayer& imgui
+) {
+	VkImage swapchainImage = vulkanCore->getSwapchain().getImages()[imageIndex];
 
     if (!outputImageInitialized) { // transition image if it is the first time it is used
         transitionImage(
@@ -385,8 +489,8 @@ void Renderer::recordCommandBuffers(
         .maxBounces = settings.maxBounces,
         .accumulatedFrames = accumulatedFrames,
         .accumulateRays = settings.accumulateRays,
-        .viewMode = static_cast<uint32_t>(settings.viewMode),
-        .debugBVHNode = settings.debugBVHNode
+        .viewMode = static_cast<uint32_t>(debug.viewMode),
+        .bvhDepth = debug.bvhDepth
     };
 
     vkCmdPushConstants(
@@ -472,15 +576,12 @@ void Renderer::recordCommandBuffers(
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     );
 
-    // get the image view for the current swapchain image
     VkImageView swapchainImageView = vulkanCore->getSwapchain().getImageViews()[imageIndex];
 
     VkRenderingAttachmentInfo colorAttachment{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
         .imageView = swapchainImageView,
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-
-        // keep the raytraced image already copied into the swapchain
         .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE
     };
@@ -488,11 +589,8 @@ void Renderer::recordCommandBuffers(
     VkRenderingInfo renderingInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .renderArea = {
-            .offset = { 0, 0 },
-            .extent = {
-                width,
-                height
-            }
+            .offset = {0, 0},
+            .extent = {width, height}
         },
         .layerCount = 1,
         .colorAttachmentCount = 1,
@@ -504,28 +602,145 @@ void Renderer::recordCommandBuffers(
         &renderingInfo
     );
 
-    // record ImGui graphics commands
+    // render ImGui here
     imgui.render(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
 
-
-    // prepare for vkQueuePresentKHR
-    transitionImage(
-        commandBuffer,
-        swapchainImage,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
-    
     transitionImage(
         commandBuffer,
         outputImage,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         VK_IMAGE_LAYOUT_GENERAL
     );
+}
 
-    utils::check(vkEndCommandBuffer(commandBuffer));
+void Renderer::recordDebugCommands(
+    VkCommandBuffer commandBuffer,
+    uint32_t imageIndex,
+    RenderSettings& settings,
+    DebugSettings& debug,
+    uint32_t width,
+    uint32_t height,
+    ImGuiLayer& imgui
+) {
+    VkImage swapchainImage = vulkanCore->getSwapchain().getImages()[imageIndex];
+    VkImageView swapchainImageView = vulkanCore->getSwapchain().getImageViews()[imageIndex];
+
+    transitionImage(
+        commandBuffer,
+        swapchainImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    );
+
+    VkRenderingAttachmentInfo colorAttachment{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = swapchainImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = {
+            .color = {{0.05f, 0.05f, 0.05f, 1.0f}}
+        }
+    };
+
+    VkRenderingInfo renderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea = {
+            .offset = { 0, 0 },
+            .extent = {width, height}
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &colorAttachment
+    }; 
+
+    // begin render
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+    vkCmdBindPipeline(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        graphicsPipeline.getPipeline()
+    );
+
+    VkDescriptorSet descriptorSet = graphicsDescriptorSet.getDescriptorSet();
+
+    vkCmdBindDescriptorSets(
+        commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        graphicsPipelineLayout,
+        0,
+        1,
+        &descriptorSet,
+        0,
+        nullptr
+    );
+
+    // viewport
+    VkViewport viewport{
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(width),
+        .height = static_cast<float>(height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{
+        .offset = { 0, 0 },
+        .extent = {width, height}
+    };
+
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // camera matrices
+    Camera camera = scene->getCamera();
+
+    glm::mat4 view = glm::lookAt(
+        camera.getPos(),
+        camera.getTarget(),
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+
+    glm::mat4 projection = glm::perspective(
+        glm::radians(camera.getFov()),
+        static_cast<float>(width) / static_cast<float>(height),
+        0.1f,
+        1000.0f
+    );
+
+    // vulkan clip-space y correction
+    projection[1][1] *= -1.0f;
+
+    Vulkan::GraphicsPushConstants pc{
+        .viewProjection = projection * view
+    };
+
+    vkCmdPushConstants(
+        commandBuffer,
+        graphicsPipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT,
+        0,
+        sizeof(Vulkan::GraphicsPushConstants),
+        &pc
+    );
+
+    // draw triangles
+    vkCmdDraw(
+        commandBuffer,
+        static_cast<uint32_t>(scene->getTriangles().size() * 3),
+        1,
+        0,
+        0
+    );
+
+    imgui.render(commandBuffer);
+
+    vkCmdEndRendering(commandBuffer);
 }
 
 void Renderer::transitionImage(
@@ -605,6 +820,17 @@ void Renderer::cleanUp() {
 
         accumulatedImage = VK_NULL_HANDLE;
         accumulatedImageAllocation = VK_NULL_HANDLE;
+    }
+
+    if (graphicsPipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(
+            vulkanCore->getDevice().get(),
+            graphicsPipelineLayout,
+            nullptr
+        );
+
+        graphicsPipelineLayout =
+            VK_NULL_HANDLE;
     }
 }
 

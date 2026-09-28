@@ -62,6 +62,7 @@ void ImGuiLayer::beginFrame() {
 
 bool ImGuiLayer::build(
     RenderSettings& settings, 
+    DebugSettings& debug,
     Camera& camera, 
     uint32_t accumulatedFrames,
     Scene scene
@@ -88,12 +89,13 @@ bool ImGuiLayer::build(
     ImGui::Text("Scene");
     ImGui::Separator();
     const char* viewModes[] = {
-        "Default",
+        "Ray Traced",
+        "Rasterized",
+        "Wireframe",
         "Normals",
-        "BVH Depth",
-        "Bounding Boxes"
+        "BVH Depth"
     };
-    currMode = static_cast<int>(settings.viewMode);
+    currMode = static_cast<int>(debug.viewMode);
     ImGui::SetNextItemWidth(200.0f);
     if (ImGui::Combo(
         "Debug View",
@@ -101,7 +103,7 @@ bool ImGuiLayer::build(
         viewModes,
         IM_ARRAYSIZE(viewModes)
     )) {
-        settings.viewMode = static_cast<ViewMode>(currMode);
+        debug.viewMode = static_cast<ViewMode>(currMode);
 
         changed = true;
     }
@@ -113,9 +115,9 @@ bool ImGuiLayer::build(
     uint32_t maxNode = static_cast<uint32_t>(scene.getBVH().getNodes().size() - 1);
     ImGui::SetNextItemWidth(200.0f);
     if (ImGui::SliderScalar(
-        "BVH Node",
+        "BVH Depth",
         ImGuiDataType_U32,
-        &settings.debugBVHNode,
+        &debug.bvhDepth,
         &minNode,
         &maxNode
     )) {

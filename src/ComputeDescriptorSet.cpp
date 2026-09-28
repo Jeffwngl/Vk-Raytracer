@@ -6,7 +6,7 @@
 namespace Vulkan {
 
 void ComputeDescriptorSet::initialize(
-    Vulkan::VulkanCore& vkCore, 
+    VulkanCore& vkCore, 
     VkImageView outputImageView, 
     VkImageView accumulatedImageView,
     const Buffer& sphereObjectBuffer,
@@ -17,7 +17,6 @@ void ComputeDescriptorSet::initialize(
     vulkanCore = &vkCore;
 
     createDescriptorSetLayout();
-    createDescriptorPool();
     createDescriptorSet(
         outputImageView, 
         accumulatedImageView,
@@ -96,33 +95,6 @@ void ComputeDescriptorSet::createDescriptorSetLayout() {
     ));
 }
 
-void ComputeDescriptorSet::createDescriptorPool() {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{
-        VkDescriptorPoolSize{
-            .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .descriptorCount = 2
-        },
-        VkDescriptorPoolSize{
-            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 4
-        }
-    };
-
-    VkDescriptorPoolCreateInfo poolCI{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = 1,
-        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-        .pPoolSizes = poolSizes.data()
-    };
-
-    utils::check(vkCreateDescriptorPool(
-        vulkanCore->getDevice().get(),
-        &poolCI,
-        nullptr,
-        &descriptorPool
-    ));
-}
-
 void ComputeDescriptorSet::createDescriptorSet(
     VkImageView outputImageView, 
     VkImageView accumulatedImageView,
@@ -133,7 +105,7 @@ void ComputeDescriptorSet::createDescriptorSet(
 ) {
     VkDescriptorSetAllocateInfo allocInfo{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = descriptorPool,
+        .descriptorPool = vulkanCore->getDescriptorPool(),
         .descriptorSetCount = 1,
         .pSetLayouts = &descriptorSetLayout
     };
@@ -262,10 +234,6 @@ VkDescriptorSet ComputeDescriptorSet::getDescriptorSet() const {
     return descriptorSet;
 }
 
-VkDescriptorPool ComputeDescriptorSet::getDescriptorPool() const {
-    return descriptorPool;
-}
-
 VkDescriptorSetLayout ComputeDescriptorSet::getDescriptorSetLayout() const {
     return descriptorSetLayout;
 }
@@ -276,14 +244,6 @@ ComputeDescriptorSet::~ComputeDescriptorSet() {
     }
 
     VkDevice device = vulkanCore->getDevice().get();
-
-    if (descriptorPool != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(
-            device,
-            descriptorPool,
-            nullptr
-        );
-    }
 
     if (descriptorSetLayout != VK_NULL_HANDLE) {
         vkDestroyDescriptorSetLayout(

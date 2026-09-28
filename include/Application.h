@@ -38,4 +38,5 @@ private:
     bool cameraMouseEnabled{ false };
 
     RenderSettings renderSettings{};
+    DebugSettings debugSettings{};
 };

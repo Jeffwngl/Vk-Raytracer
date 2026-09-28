@@ -21,6 +21,8 @@ struct alignas(16) PushConstants {
     uint32_t maxBounces = 8;
     uint32_t accumulatedFrames = 0;
     uint32_t accumulateRays = 1;
+    uint32_t viewMode = 0;
+    uint32_t bvhDepth = 0;
 };
 
 class ComputePipeline {
@@ -28,7 +30,11 @@ public:
     ComputePipeline() = default;
     ~ComputePipeline();
 
-    void initialize(VulkanCore& vkCore, std::string& path, VkDescriptorSetLayout descriptorSetLayout);
+    void initialize(
+        VulkanCore& vkCore, 
+        std::string& path, 
+        VkDescriptorSetLayout descriptorSetLayout
+    );
 
     VkPipeline getPipeline() const;
     VkPipelineLayout getPipelineLayout() const;

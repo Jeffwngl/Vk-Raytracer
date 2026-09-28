@@ -38,6 +38,7 @@ bool VulkanCore::initialize() {
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
+    createDescriptorPool();
 
     running = true;
 
@@ -78,6 +79,10 @@ VkInstance VulkanCore::getInstance() const {
 
 SDL_Window* VulkanCore::getWindow() const {
     return window;
+}
+
+VkDescriptorPool VulkanCore::getDescriptorPool() const {
+    return descriptorPool;
 }
 
 VkSemaphore VulkanCore::getRenderFinishedSemaphore(uint32_t imageIndex) const {
@@ -280,6 +285,33 @@ VkFence VulkanCore::createFence() {
 	return fence;
 }
 
+void VulkanCore::createDescriptorPool() {
+    std::array<VkDescriptorPoolSize, 2> poolSizes{
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .descriptorCount = 2
+        },
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorCount = 5
+        }
+    };
+
+    VkDescriptorPoolCreateInfo poolCI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = 2,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data()
+    };
+
+    utils::check(vkCreateDescriptorPool(
+        device.get(),
+        &poolCI,
+        nullptr,
+        &descriptorPool
+    ));
+}
+
 bool VulkanCore::checkValidationLayerSupport() {
     uint32_t layerCount;
 
@@ -419,6 +451,17 @@ void VulkanCore::cleanUp() {
     swapchain.cleanUp();
 
     vkDestroyCommandPool(vkDevice, commandPool, nullptr);
+
+    if (descriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(
+            device.get(),
+            descriptorPool,
+            nullptr
+        );
+
+        descriptorPool =
+            VK_NULL_HANDLE;
+    }
     
     if (allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(allocator);

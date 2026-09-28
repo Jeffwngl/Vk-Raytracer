@@ -49,6 +49,8 @@ public:
     VkInstance getInstance() const;
     SDL_Window* getWindow() const;
 
+    VkDescriptorPool getDescriptorPool() const;
+
     VkSemaphore createSemaphore();
     VkFence createFence();
 
@@ -66,6 +68,8 @@ private:
     void createSyncObjects(); 
 
     bool checkValidationLayerSupport();
+
+    void createDescriptorPool();
 
     void setupDebugMessenger();
     void destroyDebugMessenger();
@@ -102,6 +106,8 @@ private:
     const std::vector<const char*> validationLayers{
         "VK_LAYER_KHRONOS_validation"
     };
+
+    VkDescriptorPool descriptorPool{ VK_NULL_HANDLE };
 };
 
 }

@@ -10,7 +10,7 @@ bool Application::initialize() {
     };
 
     // initialize scene
-    world.Igea();
+    world.Suzanne();
 
     if (!renderer.initialize(vulkanCore, world.getScene())) {
         return false;
@@ -41,6 +41,7 @@ void Application::run() {
         // imgui.build() returns true if variables have been modified
         if (imgui.build(
             renderSettings,
+            debugSettings,
             camera,
             renderer.getAccumulatedFrames(),
             world.getScene()
@@ -48,7 +49,7 @@ void Application::run() {
             renderer.resetAccumulatedFrames();
         }
 
-        renderer.drawFrame(imgui, renderSettings);
+        renderer.drawFrame(imgui, renderSettings, debugSettings);
 
         if (renderSettings.accumulateRays == 1u) {
             renderer.advanceAccumulatedFrames();

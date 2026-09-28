@@ -3,6 +3,8 @@
 #include "Core.h"
 #include "ComputePipeline.h"
 #include "ComputeDescriptorSet.h"
+#include "GraphicsPipeline.h"
+#include "GraphicsDescriptorSet.h"
 #include "Buffer.h"
 #include "Scene.h"
 #include "ImGuiLayer.h"
@@ -20,7 +22,7 @@ public:
 
     bool initialize(Vulkan::VulkanCore& vkCore, const Scene& scene);
 
-    void drawFrame(ImGuiLayer& imgui, RenderSettings& settings);
+    void drawFrame(ImGuiLayer& imgui, RenderSettings& settings, DebugSettings& debug);
 
     uint32_t getAccumulatedFrames() const;
     void advanceAccumulatedFrames();
@@ -42,7 +44,26 @@ private:
         VkCommandBuffer commandBuffer, 
         uint32_t imageIndex, 
         ImGuiLayer& imgui,
-        RenderSettings& settings
+        RenderSettings& settings,
+        DebugSettings& debug
+    );
+    void recordRaytraceCommands(
+        VkCommandBuffer commandBuffer,
+        uint32_t imageIndex,
+        RenderSettings& settings,
+        DebugSettings& debug,
+        uint32_t width,
+        uint32_t height,
+        ImGuiLayer& imgui
+    );
+    void recordDebugCommands(
+        VkCommandBuffer commandBuffer,
+        uint32_t imageIndex,
+        RenderSettings& settings,
+        DebugSettings& debug,
+        uint32_t width,
+        uint32_t height,
+        ImGuiLayer& imgui
     );
 
     void createImages();
@@ -59,6 +80,9 @@ private:
     );
     void createComputeDescriptorSet();
     void createComputePipeline(std::string& path);
+    void createGraphicsDescriptorSet();
+    void createGraphicsPipelineLayout();
+    void createGraphicsPipeline(std::string& vertFilePath, std::string& fragFilePath);
 
     // https://docs.vulkan.org/guide/latest/storage_image_and_texel_buffers.html
     // transition outputImage from undefined to general
@@ -78,6 +102,9 @@ private:
 
     Vulkan::ComputePipeline computePipeline{};
     Vulkan::ComputeDescriptorSet computeDescriptorSet{};
+    Vulkan::GraphicsPipeline graphicsPipeline{};
+    Vulkan::GraphicsDescriptorSet graphicsDescriptorSet{};
+    VkPipelineLayout graphicsPipelineLayout{ VK_NULL_HANDLE };
 
     Vulkan::Buffer sphereBuffer{};
     Vulkan::Buffer triangleBuffer{};

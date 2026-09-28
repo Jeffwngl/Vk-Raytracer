@@ -1,7 +1,9 @@
 # Vk-Raytracer
 Vulkan raytracer
 
-This is a personal project following the CPU based ray tracing listed out in Peter Shirley's books, as well as to learn Vulkans Graphics API.
+This is a personal project following the techniques listed CPU based ray tracing listed out in Peter Shirley's books, while using the Vulkan specification.
+
+## Gallery
 
 ![Image](public/oneweekend.png)
 
@@ -14,6 +16,8 @@ This is a personal project following the CPU based ray tracing listed out in Pet
 ![Image](public/lucy2.png)
 
 ![Image](public/lucies.png)
+
+![Image](public/boxtest.png)
 
 ## Dependencies
 - SDL3
@@ -90,3 +94,4 @@ lucies
 (Real Time RayTracing)[https://developer.nvidia.com/blog/vulkan-raytracing]  
 (Triangle Intersection)[https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle//moller-trumbore-ray-triangle-intersection.html]  
 (3D models)[https://graphics.stanford.edu/data/3Dscanrep/]
+(BVH)[https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/]

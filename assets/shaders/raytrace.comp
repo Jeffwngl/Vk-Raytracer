@@ -11,6 +11,7 @@
 #include "common/color.glsl"
 #include "common/sampling.glsl"
 #include "common/material.glsl"
+#include "common/debug.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
@@ -54,43 +55,29 @@ layout(push_constant) uniform PushConstants {
     uint accumulatedFrames;
     uint accumulateRays;
     uint viewMode;
-    uint debugBVHNode; // TODO: remove this
+    uint BVHthreshold;
 } pc;
 
 const float FLOAT_MAX = 3.402823466e+38;
 
-vec3 debugBoundingBox(Ray ray) {
-    BVHNode node = nodes[pc.debugBVHNode];
-
-    float tNear;
-
-    if (hitAABB(
-        ray,
-        node.boundsMin,
-        node.boundsMax,
-        0.001,
-        FLOAT_MAX,
-        tNear
-    )) {
-        return vec3(1.0, 0.2, 0.2);
-    }
-
-    return skyColor(ray.direction);
-}
+const uint VIEW_NORMAL = 0u;
+const uint VIEW_BOX_TESTS = 3u;
 
 bool hitBVH(
     Ray ray,
     float tMin,
     float tMax,
-    out HitRecord closestHit
+    out HitRecord closestHit,
+    out uint boxTests
 ) {
     bool hitAnything = false;
     float closestT = tMax;
- 
-    uint stack[MAX_DEPTH]; // max depth is 64
+
+    boxTests = 0u;
+
+    uint stack[MAX_DEPTH];
     uint stackPtr = 0;
 
-    // root node
     stack[stackPtr++] = 0;
 
     while (stackPtr > 0) {
@@ -100,7 +87,9 @@ bool hitBVH(
 
         float tNear;
 
-        // ray misses this whole section of geometry
+        // We are about to perform an AABB test
+        boxTests++;
+
         if (!hitAABB(
             ray,
             node.boundsMin,
@@ -112,30 +101,25 @@ bool hitBVH(
             continue;
         }
 
-        // leaf node
         if (node.triangleCount > 0) {
-
             for (uint i = 0; i < node.triangleCount; ++i) {
                 uint triangleIndex = node.firstTriangle + i;
 
                 HitRecord temp;
 
                 if (hitTriangleMoller(
-                        ray,
-                        triangles[triangleIndex],
-                        tMin,
-                        closestT,
-                        temp
-                    )
-                ) {
+                    ray,
+                    triangles[triangleIndex],
+                    tMin,
+                    closestT,
+                    temp
+                )) {
                     hitAnything = true;
                     closestT = temp.t;
                     closestHit = temp;
                 }
             }
         }
-
-        // Internal node
         else {
             stack[stackPtr++] = node.leftChild;
             stack[stackPtr++] = node.rightChild;
@@ -143,6 +127,21 @@ bool hitBVH(
     }
 
     return hitAnything;
+}
+
+uint getBVHBoxTests(Ray ray) {
+    HitRecord rec;
+    uint boxTests;
+
+    hitBVH(
+        ray,
+        0.001,
+        FLOAT_MAX,
+        rec,
+        boxTests
+    );
+
+    return boxTests;
 }
 
 bool hitGround(
@@ -202,28 +201,21 @@ bool hitScene(
 
     // triangles
     HitRecord triangleHit;
+    uint bvhBoxTests;
 
     if (
         hitBVH(
             ray,
             0.001,
             closestT,
-            triangleHit
+            triangleHit,
+            bvhBoxTests
         )
     ) {
         hitAnything = true;
         closestT = triangleHit.t;
         closestHit = triangleHit;
     }
-    // for (uint i = 0; i < pc.triangleCnt; ++i) {
-    //     HitRecord temp;
-
-    //     if (hitTriangleMoller(ray, triangles[i], 0.001, closestT, temp)) {
-    //         hitAnything = true;
-    //         closestT = temp.t;
-    //         closestHit = temp;
-    //     }
-    // }
 
     // ground
     HitRecord groundHit;
@@ -303,6 +295,27 @@ void main() {
 
     vec3 color = vec3(0.0);
 
+    if (pc.viewMode == VIEW_BOX_TESTS) {
+        vec3 pixelPosition =
+            pc.pixelStart.xyz
+            + float(pixel.x) * pc.pixelDU.xyz
+            + float(pixel.y) * pc.pixelDV.xyz;
+
+        Ray ray;
+        ray.origin = pc.cameraPosition.xyz;
+        ray.direction = normalize(pixelPosition - ray.origin);
+
+        uint boxTests = getBVHBoxTests(ray);
+
+        vec3 debugColor = boxTestHeatmap(
+            boxTests,
+            pc.BVHthreshold
+        );
+
+        imageStore(outputImage, pixel, vec4(debugColor, 1.0));
+        return;
+    }
+
     for (uint i = 0; i < pc.samplesPerPixel; ++i) {
         // rnd(rngState) produces random number from [0,1] resulting 
         // range is [-0.5, 0.5] which shows the offset from the original pixel
@@ -325,30 +338,7 @@ void main() {
         ray.origin = pc.cameraPosition.xyz + lensOffset;
         ray.direction = normalize(pixelPosition - ray.origin);
 
-        // surface normal view toggled on
-        if (pc.viewMode == 1u) {
-            HitRecord rec;
-
-            if (hitScene(ray, rec)) {
-                color += rec.normal * 0.5 + 0.5;
-            }
-            else {
-                color += skyColor(ray.direction);
-            }
-        } // TODO: remove all this and add to a separate debug rasterizer pipeline
-        else if (pc.viewMode == 2u) { // show bounding volume
-            HitRecord rec;
-
-            if (hitScene(ray, rec)) {
-                color += rec.normal * 0.5 + 0.5;
-            }
-        }
-        else if (pc.viewMode == 3u) {
-            color += debugBoundingBox(ray);
-        }
-        else {
-            color += rayColor(ray, rngState);
-        }
+        color += rayColor(ray, rngState);
     }
 
     color /= float(pc.samplesPerPixel);

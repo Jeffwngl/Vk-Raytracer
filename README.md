@@ -13,6 +13,8 @@ This is a personal project following the CPU based ray tracing listed out in Pet
 
 ![Image](public/lucy2.png)
 
+![Image](public/lucies.png)
+
 ## Dependencies
 - SDL3
 - VulkanMemoryAllocator
@@ -24,6 +26,30 @@ This is a personal project following the CPU based ray tracing listed out in Pet
 - Benchmarking.
 - Add bounce count, normals, material ID views and bounding box views and nodes.
 - Add light sources and texture mapping.
+
+## Usage
+- To build the program, use `build.sh` from the root directory;
+```
+build.sh
+```
+- Alternatively, use run cmake from the directory;
+```
+cmake -S . -B build
+cmake --build build
+```
+- Ignore the current `run.sh` script, it was only used for debugging.
+- To run the ray tracer, run it from the root directory using the format `./build/Vk-Raytracer <model-name>`, e.g. `./build/Vk-Raytracer spheres`.
+- Some supplied scene names are listed below;
+```
+spheres
+oneWeekend
+igea
+lucy
+teapot
+suzanne
+lucies
+```
+
 ## Architecture
 - Setting up the Vulkan pipeline was probably the most tedious and complicated part of this whole project, I made a great deal to separate each of it's setup components into separate objects so that they are easy to understand when used together but it is still not yet fully resolved. I've made diagrams to reason about the design of the setup and understand the relations between each component as I was developing.
 
@@ -47,7 +73,7 @@ This is a personal project following the CPU based ray tracing listed out in Pet
 - Added OBJ file loading.  
 - Testing the frame rate for simple models with triangles, e.g. Suzanne is low, around 3 fps with 2 bounces and 2 samples per pixel.  
 - I've decided to separate my BVH implementation to construct the nodes on the CPU using recursion and use a flat array of GPU friendly nodes when used.  
-- After implementing a simple BVH, the fps jumped all the way from around 15 to 200, it's kind of interesting to visually see the difference of O(n) and O log(n) time and realize bow much faster log(n) is for large numbers of n.  
+- After implementing a simple BVH, the fps jumped all the way from around 15 to 200 for a simple model such as Suzanne, interesting to visually see the difference of O(n) and O log(n) time and realize bow much faster log(n) is for large numbers of n.  
 28/09.  
 - Currently, the BVH construction algorithm is done in the CPU with recursion, for a model with around 260k triangles, the construction time is noticeably slow, however perhaps an iterative approach on the GPU could be faster?
 ## Benchmarking

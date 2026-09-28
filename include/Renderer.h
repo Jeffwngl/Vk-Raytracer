@@ -72,6 +72,8 @@ private:
     void createOutputImageView();
     void createAccumulatedImage();
     void createAccumulatedImageView();
+    void createDepthImage();
+    void createDepthImageView();
     void createBuffers();
     template<typename T>
     void createStorageBuffer(
@@ -90,7 +92,8 @@ private:
 		VkCommandBuffer commandBuffer,
 		VkImage image,
 		VkImageLayout oldLayout,
-		VkImageLayout newLayout
+		VkImageLayout newLayout,
+        VkImageAspectFlags aspectMask
 	);
 
 private:
@@ -118,6 +121,9 @@ private:
     VkImage accumulatedImage{ VK_NULL_HANDLE };
     VkImageView accumulatedImageView{ VK_NULL_HANDLE };
     VmaAllocation accumulatedImageAllocation{ VK_NULL_HANDLE };
+    VkImage depthImage{ VK_NULL_HANDLE };
+    VkImageView depthImageView{ VK_NULL_HANDLE };
+    VmaAllocation depthImageAllocation{ VK_NULL_HANDLE };
 
     uint32_t accumulatedFrames{ 0 };
     uint32_t MAX_FRAMES_IN_FLIGHT{ 2 };

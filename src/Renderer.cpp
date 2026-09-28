@@ -106,11 +106,13 @@ void Renderer::resetAccumulatedFrames() {
 void Renderer::createImages() {
     createOutputImage();
     createAccumulatedImage();
+    createDepthImage();
 }
 
 void Renderer::createImageViews() {
     createOutputImageView();
     createAccumulatedImageView();
+    createDepthImageView();
 }
 
 void Renderer::createOutputImage() {
@@ -183,6 +185,41 @@ void Renderer::createAccumulatedImage() {
     ));
 }
 
+void Renderer::createDepthImage() {
+    VkImageCreateInfo imageCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_D32_SFLOAT,
+        .extent = {
+            .width = static_cast<uint32_t>(vulkanCore->getWindowSize().x),
+            .height = static_cast<uint32_t>(vulkanCore->getWindowSize().y),
+            .depth = 1
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+    };
+
+    VmaAllocationCreateInfo allocationCI{
+        .usage = VMA_MEMORY_USAGE_AUTO
+    };
+
+    utils::check(
+        vmaCreateImage(
+            vulkanCore->getVmaAllocator(),
+            &imageCI,
+            &allocationCI,
+            &depthImage,
+            &depthImageAllocation,
+            nullptr
+        )
+    );
+}
+
 void Renderer::createOutputImageView() {
     VkImageViewCreateInfo imageViewCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -227,6 +264,31 @@ void Renderer::createAccumulatedImageView() {
         nullptr,
         &accumulatedImageView
     ));
+}
+
+void Renderer::createDepthImageView() {
+    VkImageViewCreateInfo imageViewCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = depthImage,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = VK_FORMAT_D32_SFLOAT,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    utils::check(
+        vkCreateImageView(
+            vulkanCore->getDevice().get(),
+            &imageViewCI,
+            nullptr,
+            &depthImageView
+        )
+    );
 }
 
 void Renderer::createBuffers() {
@@ -322,7 +384,7 @@ void Renderer::createGraphicsPipeline(
 
     config.pipelineLayout = graphicsPipelineLayout;
     config.colorFormat = vulkanCore->getSwapchain().getFormat();
-    config.depthFormat = VK_FORMAT_UNDEFINED;
+    config.depthFormat = VK_FORMAT_D32_SFLOAT;
 
     graphicsPipeline.initialize(
         vulkanCore->getDevice().get(),
@@ -421,7 +483,8 @@ void Renderer::recordCommandBuffers(
         commandBuffer,
         swapchainImage,
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_IMAGE_ASPECT_COLOR_BIT
     );
 
     utils::check(vkEndCommandBuffer(commandBuffer));
@@ -443,7 +506,8 @@ void Renderer::recordRaytraceCommands(
             commandBuffer,
             outputImage,
             VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_ASPECT_COLOR_BIT
         );
 
         outputImageInitialized = true;
@@ -454,7 +518,8 @@ void Renderer::recordRaytraceCommands(
             commandBuffer,
             accumulatedImage,
             VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_GENERAL
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_ASPECT_COLOR_BIT
         );
 
         accumulatedImageInitialized = true;
@@ -513,14 +578,16 @@ void Renderer::recordRaytraceCommands(
 		commandBuffer,
 		outputImage,
 		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_ASPECT_COLOR_BIT
 	);
 
 	transitionImage( // prepare swapchain image for same format
 		commandBuffer,
 		swapchainImage,
 		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_ASPECT_COLOR_BIT
 	);
 
     VkImageBlit region{
@@ -573,7 +640,8 @@ void Renderer::recordRaytraceCommands(
         commandBuffer,
         swapchainImage,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_ASPECT_COLOR_BIT
     );
 
     VkImageView swapchainImageView = vulkanCore->getSwapchain().getImageViews()[imageIndex];
@@ -611,7 +679,8 @@ void Renderer::recordRaytraceCommands(
         commandBuffer,
         outputImage,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_IMAGE_LAYOUT_GENERAL
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT
     );
 }
 
@@ -631,7 +700,8 @@ void Renderer::recordDebugCommands(
         commandBuffer,
         swapchainImage,
         VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_ASPECT_COLOR_BIT
     );
 
     VkRenderingAttachmentInfo colorAttachment{
@@ -645,6 +715,20 @@ void Renderer::recordDebugCommands(
         }
     };
 
+    VkRenderingAttachmentInfo depthAttachment{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = depthImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = {
+            .depthStencil = {
+                1.0f,
+                0
+            }
+        }
+    };
+
     VkRenderingInfo renderingInfo{
         .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
         .renderArea = {
@@ -653,12 +737,24 @@ void Renderer::recordDebugCommands(
         },
         .layerCount = 1,
         .colorAttachmentCount = 1,
-        .pColorAttachments = &colorAttachment
+        .pColorAttachments = &colorAttachment,
+        .pDepthAttachment = &depthAttachment
     }; 
 
-    // begin render
-    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+    transitionImage(
+        commandBuffer,
+        depthImage,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_ASPECT_DEPTH_BIT
+    );
 
+    vkCmdBeginRendering(
+        commandBuffer,
+        &renderingInfo
+    );
+
+    // bind raster graphics pipeline
     vkCmdBindPipeline(
         commandBuffer,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -738,6 +834,36 @@ void Renderer::recordDebugCommands(
         0
     );
 
+    vkCmdEndRendering(commandBuffer);
+
+    // begin second rendering for imgui because of dumbass vulkan/imgui imageView warning
+    VkRenderingAttachmentInfo imguiColorAttachment{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = swapchainImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        // keep rasterized scene already drawn
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE
+    };
+
+    VkRenderingInfo imguiRenderingInfo{
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea = {
+            .offset = {0, 0},
+            .extent = {width, height}
+        },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &imguiColorAttachment,
+        // imgui complains about this
+        .pDepthAttachment = nullptr
+    };
+
+    vkCmdBeginRendering(
+        commandBuffer,
+        &imguiRenderingInfo
+    );
+
     imgui.render(commandBuffer);
 
     vkCmdEndRendering(commandBuffer);
@@ -747,7 +873,8 @@ void Renderer::transitionImage(
 		VkCommandBuffer commandBuffer,
 		VkImage image,
 		VkImageLayout oldLayout,
-		VkImageLayout newLayout
+		VkImageLayout newLayout,
+        VkImageAspectFlags aspectMask
 ) {
 	VkImageMemoryBarrier2 barrier{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -759,7 +886,7 @@ void Renderer::transitionImage(
 		.newLayout = newLayout,
 		.image = image,
 		.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.aspectMask = aspectMask,
 			.baseMipLevel = 0,
 			.levelCount = 1,
 			.baseArrayLayer = 0,
@@ -820,6 +947,27 @@ void Renderer::cleanUp() {
 
         accumulatedImage = VK_NULL_HANDLE;
         accumulatedImageAllocation = VK_NULL_HANDLE;
+    }
+
+    if (depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(
+            vulkanCore->getDevice().get(),
+            depthImageView,
+            nullptr
+        );
+
+        depthImageView = VK_NULL_HANDLE;
+    }
+
+    if (depthImage != VK_NULL_HANDLE) {
+        vmaDestroyImage(
+            vulkanCore->getVmaAllocator(),
+            depthImage,
+            depthImageAllocation
+        );
+
+        depthImage = VK_NULL_HANDLE;
+        depthImageAllocation = VK_NULL_HANDLE;
     }
 
     if (graphicsPipelineLayout != VK_NULL_HANDLE) {

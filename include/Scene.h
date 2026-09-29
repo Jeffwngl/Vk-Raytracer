@@ -31,6 +31,8 @@ struct MaterialDefinition {
     glm::vec4 params; // x, y, z, w 16 bytes
     uint32_t type; // 4 bytes
     uint32_t padding[3]{}; // 12 bytes
+
+    bool operator==(const MaterialDefinition&) const = default;
 };
 
 static_assert(sizeof(MaterialDefinition) == 48);

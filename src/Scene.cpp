@@ -11,6 +11,12 @@ void Scene::addObject(const Object& object) {
 }
 
 uint32_t Scene::addMaterial(const MaterialDefinition& material) {
+    for (uint32_t i = 0; i < materials.size(); ++i) {
+        if (materials[i] ==  material) {
+            return i;
+        }
+    }
+
     materials.push_back(material);
     dirty = true;
 
@@ -70,9 +76,7 @@ Mesh Scene::loadObj(const std::string& path) {
             if (index.texcoord_index >= 0) {
                 vertex.uv = {
                     attrib.texcoords[2 * index.texcoord_index + 0],
-                    1.0f - attrib.texcoords[
-                        2 * index.texcoord_index + 1
-                    ]
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
                 };
             }
 
@@ -89,7 +93,7 @@ Mesh Scene::loadObj(const std::string& path) {
         ) > 1e-12f;
     };
 
-    // Generate missing normals per triangle
+    // generate missing normals per triangle
     for (size_t i = 0; i < mesh.indices.size(); i += 3) {
         Vertex& v0 = mesh.vertices[mesh.indices[i + 0]];
         Vertex& v1 = mesh.vertices[mesh.indices[i + 1]];
@@ -168,11 +172,7 @@ void Scene::buildTriangles() {
             glm::inverse(glm::mat3(model))
         );
 
-        for (
-            size_t i = 0;
-            i < mesh.indices.size();
-            i += 3
-        ) {
+        for (size_t i = 0; i < mesh.indices.size(); i += 3) {
             Vertex v0 = mesh.vertices[mesh.indices[i + 0]];
             Vertex v1 = mesh.vertices[mesh.indices[i + 1]];
             Vertex v2 = mesh.vertices[mesh.indices[i + 2]];

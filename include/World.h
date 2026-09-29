@@ -19,6 +19,10 @@ public:
 
     void Igea();
 
+    void Lucy();
+
+    void Lucies();
+
     Scene& getScene() {
         return scene;
     }
@@ -28,7 +32,15 @@ public:
     }
 
 private:
-    void loadModel(std::string& path, const MaterialDefinition& materialDef);
+    void loadModel(
+        std::string& path, 
+        const MaterialDefinition& materialDef, 
+        float scale, 
+        glm::vec3 transform, 
+        glm::vec3 rot
+    );
+
+    void buildModel();
 
 private:
     Scene scene{};

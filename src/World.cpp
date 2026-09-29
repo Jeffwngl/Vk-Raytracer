@@ -3,11 +3,12 @@
 #include "World.h"
 #include "Random.h"
 
-void World::loadModel(std::string& path, const MaterialDefinition& materialDef) {
+void World::loadModel(std::string& path, const MaterialDefinition& materialDef, float scale, glm::vec3 pos, glm::vec3 rot) {
 
     std::cout << "Loading...\n";
 
-    uint32_t material  = scene.addMaterial(materialDef);
+    uint32_t material = scene.addMaterial(materialDef);
+
     uint32_t mesh = scene.addMesh(scene.loadObj(path));
 
     std::cout << "OBJ loaded\n";
@@ -15,22 +16,24 @@ void World::loadModel(std::string& path, const MaterialDefinition& materialDef) 
     Object model {
         .meshIndex = mesh,
         .transform = {
-            .position = {0.0f, 0.0f, -3.0f},
-            .rotation = {},
-            .scale = {1.0f, 1.0f, 1.0f},
+            .position = pos,
+            .rotation = rot,
+            .scale = {scale, scale, scale},
         },
         .materialIndex = material,
     };
 
     scene.addObject(model);
+}
 
+void World::buildModel() {
     scene.buildTriangles();
     scene.buildBVH();
 
     std::cout
-    << "BVH built with "
-    << scene.getBVH().getNodes().size()
-    << " nodes\n";
+        << "BVH built with "
+        << scene.getBVH().getNodes().size()
+        << " nodes\n";
 
     std::cout
         << "Triangles built: "
@@ -430,16 +433,89 @@ void World::RayTracingInOneWeekend() {
 }
 
 void World::UtahTeapot() {
+    Camera& camera = scene.getCamera();
+
+    camera.setDefocusAngle(0.0f);
+
+    camera.setPos(
+        glm::vec3(0.0f, 3.0f, 20.0f)
+    );
+
+   camera.setTarget(
+        glm::vec3(0.0f, 2.0f, 0.0f)
+    );
+
+    camera.setFov(20.0f);
     std::string path = "assets/models/teapot.obj";
-    loadModel(path, whiteDiffuse);    
+    loadModel(path, whiteDiffuse, 1.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));    
+    buildModel();
 }
 
 void World::Suzanne() {
+    Camera& camera = scene.getCamera();
+
+    camera.setDefocusAngle(0.0f);
+
+    camera.setPos(
+        glm::vec3(-3.0f, 1.0f, 15.0f)
+    );
+
+    camera.setTarget(
+        glm::vec3(-2.3f, 1.0f, 0.0f)
+    );
+
+    camera.setFov(20.0f);
     std::string path = "assets/models/suzanne.obj";
-    loadModel(path, whiteDiffuse);    
+    loadModel(path, whiteDiffuse, 1.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));    
+    buildModel();
 }
 
 void World::Igea() {
+    Camera& camera = scene.getCamera();
+
+    camera.setDefocusAngle(0.0f);
+
     std::string path = "assets/models/igea.obj";
-    loadModel(path, whiteDiffuse);
+    loadModel(path, whiteDiffuse, 4.0f, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    buildModel();
+}
+
+void World::Lucy() {
+    Camera& camera = scene.getCamera();
+
+    camera.setDefocusAngle(0.0f);
+
+    camera.setPos(
+        glm::vec3(0.0f, 0.0f, 0.0f)
+    );
+
+    camera.setTarget(
+        glm::vec3(0.0f, 1.0f, -10.0f)
+    );
+
+    std::string path = "assets/models/lucy.obj";
+    loadModel(path, whiteDiffuse, 5.0f, glm::vec3(1.0f, -0.8f, -8.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    buildModel();
+}
+
+void World::Lucies() {
+    Camera& camera = scene.getCamera();
+
+    camera.setDefocusAngle(0.0f);
+
+    camera.setPos(
+        glm::vec3(0.0f, 1.0f, 2.0f)
+    );
+
+    camera.setTarget(
+        glm::vec3(0.0f, 0.5f, -8.0f)
+    );
+
+    std::string path = "assets/models/lucy.obj";
+    loadModel(path, whiteDiffuse, 5.0f, glm::vec3(0.0f, -0.8f, -8.0f), glm::vec3(0.0f));
+
+    loadModel(path, silverMetal, 5.0f, glm::vec3(2.0f, -0.8f, -11.0f), glm::vec3(0.0f));
+
+    loadModel(path, glass, 5.0f, glm::vec3(4.0f, -0.8f, -14.0f), glm::vec3(0.0f));
+    buildModel();
 }

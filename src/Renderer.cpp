@@ -63,11 +63,15 @@ void Renderer::drawFrame(ImGuiLayer& imgui, RenderSettings& settings, DebugSetti
         debug
     );
 
+    VkPipelineStageFlags waitStage = debug.viewMode == ViewMode::Raytrace
+        ? VK_PIPELINE_STAGE_TRANSFER_BIT
+        : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
     // 5. Submit 
     queue.submit(
         frame.computeCommandBuffer,
         frame.imageAvailable,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        waitStage,
         renderFinished,
         frame.computeFence
     );
@@ -455,7 +459,7 @@ void Renderer::recordCommandBuffers(
     uint32_t width = static_cast<uint32_t>(vulkanCore->getWindowSize().x);
     uint32_t height = static_cast<uint32_t>(vulkanCore->getWindowSize().y);
 
-    if (debug.viewMode == ViewMode::Raytrace) {
+    if (debug.viewMode == ViewMode::Raytrace || debug.viewMode == ViewMode::BVHDebug) {
         recordRaytraceCommands(
             commandBuffer,
             imageIndex,
@@ -555,7 +559,7 @@ void Renderer::recordRaytraceCommands(
         .accumulatedFrames = accumulatedFrames,
         .accumulateRays = settings.accumulateRays,
         .viewMode = static_cast<uint32_t>(debug.viewMode),
-        .bvhDepth = debug.bvhDepth
+        .boxTestThreshold = debug.boxTestThreshold
     };
 
     vkCmdPushConstants(

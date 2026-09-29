@@ -13,6 +13,7 @@ void BVH::build(std::vector<Triangle>& triangles) {
     buildNode(triangles, 0, static_cast<uint32_t>(triangles.size()));
 }
 
+// builds a the BVH tree recursively
 uint32_t BVH::buildNode (
     std::vector<Triangle>& triangles,
     uint32_t start,
@@ -22,6 +23,8 @@ uint32_t BVH::buildNode (
 
     nodes.push_back({});
 
+    // creates a bounding box containing every triangle belonging
+    // to that node.
     AABB bounds = getBounds(
         triangles,
         start,
@@ -32,6 +35,7 @@ uint32_t BVH::buildNode (
     nodes[nodeIdx].boundsMax = bounds.max;
 
     // stop recursing when leaf node has less than 4 triangles
+    // we create a leaf node here
     if (cnt <= MAX_TRIANGLES_PER_LEAF) {
         nodes[nodeIdx].firstTriangle = start;
         nodes[nodeIdx].triangleCount = cnt;
@@ -52,6 +56,11 @@ uint32_t BVH::buildNode (
         axis = 2;
     }
 
+    // compute each triangles centroid and sort the subset of 
+    // triangles that belong to the current node along longest axis
+    // ensures that the triangles are sorted along the longer
+    // axis so they can be split evenly into left and right bounding
+    // boxes.
     std::sort(
         triangles.begin() + start,
         triangles.begin() + start + cnt,
@@ -90,6 +99,7 @@ AABB BVH::getTriangleBounds(const Triangle& triangle) const {
 
     AABB bounds{};
 
+    // get min vertex of all triangle vertices
     bounds.min = glm::min(v0, glm::min(v1, v2));
     bounds.max = glm::max(v0, glm::max(v1, v2));
 

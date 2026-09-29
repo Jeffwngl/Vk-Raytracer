@@ -18,6 +18,9 @@ static_assert(sizeof(AABB) == 32);
 
 
 // bounding volume heirarchy
+// the GPU reades in multiples of 32 everytime it grabs memory from the VRAM,
+// some surrounding 128 bytes are also grabbed and stored in the cache, if we
+// keep nodes to 32 bits, it will increase more cache hits on our memory access.
 struct alignas(16) BVHNode {
     glm::vec3 boundsMin;
     uint32_t leftChild{};

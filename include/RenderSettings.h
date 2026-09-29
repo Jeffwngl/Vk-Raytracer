@@ -2,15 +2,15 @@
 
 enum class ViewMode : uint32_t {
     Raytrace = 0,
-    Rasterzied = 1,
+    Rasterized = 1,
     Wireframe = 2,
-    Normals = 3,
+    BVHDebug = 3,
     BVHDepth = 4,
 };
 
 struct DebugSettings {
     ViewMode viewMode = ViewMode::Raytrace;
-    uint32_t bvhDepth = 0;
+    uint32_t boxTestThreshold = 5;
 };
 
 struct RenderSettings {

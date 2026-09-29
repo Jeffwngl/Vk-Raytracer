@@ -92,7 +92,7 @@ bool ImGuiLayer::build(
         "Ray Traced",
         "Rasterized",
         "Wireframe",
-        "Normals",
+        "BVH Debug",
         "BVH Depth"
     };
     currMode = static_cast<int>(debug.viewMode);
@@ -111,13 +111,13 @@ bool ImGuiLayer::build(
 
     ImGui::Text("Bounding Boxes (In BVH mode only)");
     ImGui::Separator();
-    uint32_t minNode = 0;
-    uint32_t maxNode = static_cast<uint32_t>(scene.getBVH().getNodes().size() - 1);
+    uint32_t minNode = 1;
+    uint32_t maxNode = 1000;
     ImGui::SetNextItemWidth(200.0f);
     if (ImGui::SliderScalar(
-        "BVH Depth",
+        "Box Test Threshold",
         ImGuiDataType_U32,
-        &debug.bvhDepth,
+        &debug.boxTestThreshold,
         &minNode,
         &maxNode
     )) {

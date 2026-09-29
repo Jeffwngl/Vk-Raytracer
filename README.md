@@ -63,21 +63,27 @@ lucies
 12/09. 
 - Currently, the program uses Vulkan's `compute shader` to calculate the paths and the pixels for the rays, I would like to eventually extend this to use `VK_KHR_ray_tracing_pipeline` extension.
 - Keeping the camera class on the CPU was actually a better choice, it avoids having most camera calculations which usually runs one per frame being run for every pixel saving alot of resources, the result of keeping the camera on the CPU is that it sends 64-100 bytes of data per frame which is insignificant to the shaders dispatching millions of invocations.  
+
 20/09. 
 - Currently, there is alot of screen tearing when moving the camera, the setup chooses FIFO mode when Vulkan is initialized which may be part of the problem, additionally, many image transitions are used in the rendering process which could also contribute to delayed frame swaps.  
+
 22/09. 
 - The frame rate is absolutely atrocious to say the least, progressive accumulation of rays is probably done for a reason.
 - The shader currently uses a brute force intersection loop for every object in the scene, every bounce of a ray check every sphere.  
+
 25/09. 
 - Accumulation done. Performance improved drastically, before using 64 samples per pixel caused the frame rate to drop to around 5-10 FPS but now with accumulated sampling, a stable 60 FPS remains while the quality is still decent.  
+
 26/09. 
 - Implemented Moller Trumbore algorithm for triangle intersection.  
 - Added OBJ file loading.  
 - Testing the frame rate for simple models with triangles, e.g. Suzanne is low, around 3 fps with 2 bounces and 2 samples per pixel.  
 - I've decided to separate my BVH implementation to construct the nodes on the CPU using recursion and use a flat array of GPU friendly nodes when used.  
 - After implementing a simple BVH, the fps jumped all the way from around 15 to 200 for a simple model such as Suzanne, interesting to visually see the difference of O(n) and O log(n) time and realize bow much faster log(n) is for large numbers of n.  
+
 28/09.  
-- Currently, the BVH construction algorithm is done in the CPU with recursion, for a model with around 260k triangles, the construction time is noticeably slow, however perhaps an iterative approach on the GPU could be faster?
+- Currently, the BVH construction algorithm is done in the CPU with recursion, for a model with around 260k triangles, the construction time is noticeably slow, however perhaps an iterative approach on the GPU could be faster?  
+
 29/09.  
 - After implementing distance testing and child ordering on the BVH, the fps has increased from around 120 to around 200, however, some fps drops down to 60 are visible even when the camera is sitting still.
 
@@ -102,5 +108,5 @@ Before Optimization              |  After Optimization
 (Vulkan Tutorial)[https://vulkan-tutorial.com/]  
 (Real Time RayTracing)[https://developer.nvidia.com/blog/vulkan-raytracing]  
 (Triangle Intersection)[https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle//moller-trumbore-ray-triangle-intersection.html]  
-(3D models)[https://graphics.stanford.edu/data/3Dscanrep/]
+(3D models)[https://graphics.stanford.edu/data/3Dscanrep/]  
 (BVH)[https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/]

@@ -3,14 +3,77 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <cstdint>
+#include <iostream>
 
-bool Application::initialize() {
+enum class SceneName {
+    Spheres,
+    OneWeekend,
+    Igea,
+    Lucy,
+    Teapot,
+    Suzanne,
+    Lucies
+};
+
+const std::unordered_map<std::string, SceneName> scenes = {
+    {"spheres", SceneName::Spheres},
+    {"oneWeekend", SceneName::OneWeekend},
+    {"igea", SceneName::Igea},
+    {"lucy", SceneName::Lucy},
+    {"teapot", SceneName::Teapot},
+    {"suzanne", SceneName::Suzanne},
+    {"lucies", SceneName::Lucies},
+    {"", SceneName::Spheres}
+};
+
+bool Application::initialize(std::string& modelName) {
     if (!vulkanCore.initialize()) {
         return false;
     };
 
     // initialize scene
-    world.Suzanne();
+    auto it = scenes.find(modelName);
+
+    if (it == scenes.end()) {
+        std::cerr << "Unknown model: " << modelName << '\n';
+        return false;
+    }
+
+    SceneName model = it->second;
+
+    switch (model) {
+        case SceneName::Spheres:
+            world.Spheres();
+            break;
+
+        case SceneName::OneWeekend:
+            world.RayTracingInOneWeekend();
+            break;
+
+        case SceneName::Igea:
+            world.Igea();
+            break;
+
+        case SceneName::Lucy:
+            world.Lucy();
+            break;
+
+        case SceneName::Teapot:
+            world.UtahTeapot();
+            break;
+
+        case SceneName::Suzanne:
+            world.Suzanne();
+            break;
+        
+        case SceneName::Lucies:
+            world.Lucies();
+            break;
+
+        default:
+            world.Spheres();
+            break;
+    }
 
     if (!renderer.initialize(vulkanCore, world.getScene())) {
         return false;
@@ -51,7 +114,7 @@ void Application::run() {
 
         renderer.drawFrame(imgui, renderSettings, debugSettings);
 
-        if (renderSettings.accumulateRays == 1u) {
+        if (renderSettings.accumulateRays == 1u && debugSettings.viewMode == ViewMode::Raytrace) {
             renderer.advanceAccumulatedFrames();
         }
     }

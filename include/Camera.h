@@ -26,6 +26,7 @@ public:
     void setTarget(const glm::vec3& target);
     void setFov(float fov);
     void setSpeed(float speed);
+    void setDefocusAngle(float defocusAngle);
 
     const glm::vec3 getPos() const;
     const glm::vec3 getTarget() const;

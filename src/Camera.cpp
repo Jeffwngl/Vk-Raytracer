@@ -31,6 +31,10 @@ void Camera::setFov(float fov) {
     this->fov = fov;
 }
 
+void Camera::setDefocusAngle(float defocusAngle) {
+    this->defocusAngle = defocusAngle;
+}
+
 const glm::vec3 Camera::getPos() const {
     return this->pos;
 }

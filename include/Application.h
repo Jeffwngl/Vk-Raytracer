@@ -13,7 +13,7 @@ public:
     Application() = default;
     ~Application();
 
-    bool initialize();
+    bool initialize(std::string& modelName);
 
     void run();
 

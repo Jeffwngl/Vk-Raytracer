@@ -7,7 +7,7 @@
 #include "common/ray.glsl"
 #include "common/sphere.glsl"
 #include "common/triangle.glsl"
-#include "common/bvh.glsl"
+#include "common/bvh_types.glsl"
 #include "common/color.glsl"
 #include "common/sampling.glsl"
 #include "common/material.glsl"
@@ -39,6 +39,11 @@ readonly buffer BvhBuffer {
     BVHNode nodes[];
 };
 
+const float FLOAT_MAX = 3.402823466e+38;
+
+// bvh uses nodes and triangles
+#include "common/bvh.glsl"
+
 layout(push_constant) uniform PushConstants {
     vec4 cameraPosition;
     vec4 pixelStart;
@@ -58,91 +63,8 @@ layout(push_constant) uniform PushConstants {
     uint BVHthreshold;
 } pc;
 
-const float FLOAT_MAX = 3.402823466e+38;
-
 const uint VIEW_NORMAL = 0u;
 const uint VIEW_BOX_TESTS = 3u;
-
-bool hitBVH(
-    Ray ray,
-    float tMin,
-    float tMax,
-    out HitRecord closestHit,
-    out uint boxTests
-) {
-    bool hitAnything = false;
-    float closestT = tMax;
-
-    boxTests = 0u;
-
-    uint stack[MAX_DEPTH];
-    uint stackPtr = 0;
-
-    stack[stackPtr++] = 0;
-
-    while (stackPtr > 0) {
-        uint nodeIndex = stack[--stackPtr];
-
-        BVHNode node = nodes[nodeIndex];
-
-        float tNear;
-
-        // We are about to perform an AABB test
-        boxTests++;
-
-        if (!hitAABB(
-            ray,
-            node.boundsMin,
-            node.boundsMax,
-            tMin,
-            closestT,
-            tNear
-        )) {
-            continue;
-        }
-
-        if (node.triangleCount > 0) {
-            for (uint i = 0; i < node.triangleCount; ++i) {
-                uint triangleIndex = node.firstTriangle + i;
-
-                HitRecord temp;
-
-                if (hitTriangleMoller(
-                    ray,
-                    triangles[triangleIndex],
-                    tMin,
-                    closestT,
-                    temp
-                )) {
-                    hitAnything = true;
-                    closestT = temp.t;
-                    closestHit = temp;
-                }
-            }
-        }
-        else {
-            stack[stackPtr++] = node.leftChild;
-            stack[stackPtr++] = node.rightChild;
-        }
-    }
-
-    return hitAnything;
-}
-
-uint getBVHBoxTests(Ray ray) {
-    HitRecord rec;
-    uint boxTests;
-
-    hitBVH(
-        ray,
-        0.001,
-        FLOAT_MAX,
-        rec,
-        boxTests
-    );
-
-    return boxTests;
-}
 
 bool hitGround(
     Ray ray,

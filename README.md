@@ -17,8 +17,6 @@ This is a personal project following the techniques listed CPU based ray tracing
 
 ![Image](public/lucies.png)
 
-![Image](public/boxtest.png)
-
 ## Dependencies
 - SDL3
 - VulkanMemoryAllocator
@@ -80,8 +78,19 @@ lucies
 - After implementing a simple BVH, the fps jumped all the way from around 15 to 200 for a simple model such as Suzanne, interesting to visually see the difference of O(n) and O log(n) time and realize bow much faster log(n) is for large numbers of n.  
 28/09.  
 - Currently, the BVH construction algorithm is done in the CPU with recursion, for a model with around 260k triangles, the construction time is noticeably slow, however perhaps an iterative approach on the GPU could be faster?
+29/09.  
+- After implementing distance testing and child ordering on the BVH, the fps has increased from around 120 to around 200, however, some fps drops down to 60 are visible even when the camera is sitting still.
+
 ## Benchmarking
-- Check back later.
+- After implementing distance testing and child ordering, the number of AABB tests performed per ray is significantly less on a complex model such as lucy.
+
+Before Optimization              |  After Optimization
+:-------------------------------:|:--------------------------------:
+![boxtest1](public/boxtest.png)  |  ![boxtest2](public/boxtestImproved.png)
+
+- This impact is extremely evident in the case we have objects stacked in front of eachother, e.g. in the scene lucies, the number of box tests has decreased significantly.
+
+![boxtest3](public/luciesboxtest.png) 
 
 ## Resources
 - Thanks to Sebastian Lague's series on Ray Tracing and Peter Shirley's Ray tracing trilogy. 

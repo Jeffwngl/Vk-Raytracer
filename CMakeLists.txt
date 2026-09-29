@@ -17,6 +17,7 @@ find_package(Vulkan REQUIRED)
 
 add_subdirectory(external/sdl EXCLUDE_FROM_ALL)
 add_subdirectory(external/vma EXCLUDE_FROM_ALL)
+add_subdirectory(external/tinyobjloader)
 
 # FETCH GLM
 include(FetchContent)
@@ -39,12 +40,16 @@ add_executable(${CMAKE_PROJECT_NAME}
     src/Swapchain.cpp
     src/ComputePipeline.cpp
     src/ComputeDescriptorSet.cpp
+    src/GraphicsPipeline.cpp
+    src/GraphicsDescriptorSet.cpp
     src/Vma.cpp
     src/World.cpp
     src/Buffer.cpp
     src/Device.cpp
     src/Camera.cpp
     src/ImGuiLayer.cpp
+    src/Scene.cpp
+    src/BVH.cpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME}
@@ -59,6 +64,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         SDL3::SDL3
         glm::glm
         GPUOpen::VulkanMemoryAllocator
+        tinyobjloader
 )
 
 # IMGUI
